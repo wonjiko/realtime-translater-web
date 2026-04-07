@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real-Time Meeting Translator</title>
+<title>실시간 회의 번역기</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script>
 if (typeof LZString === 'undefined') {
@@ -588,6 +588,14 @@ body {
   color: #ffd600;
 }
 .browser-warning.visible { display: block; }
+
+/* Locale Toggle */
+.locale-btn {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 6px;
+  letter-spacing: 0.5px;
+}
 </style>
 </head>
 <body>
@@ -597,39 +605,40 @@ body {
 
 <!-- Header -->
 <div class="header">
-  <h1>Real-Time Translator</h1>
+  <h1 data-i18n="appTitle">실시간 번역기</h1>
   <div class="header-actions">
-    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">&#9881;</button>
+    <button class="icon-btn locale-btn" id="btnLocale" title="English/한국어">EN</button>
+    <button class="icon-btn" id="btnSettings" title="설정" aria-label="설정" data-i18n-title="settings" data-i18n-aria="settings">&#9881;</button>
   </div>
 </div>
 
 <!-- Browser Warning -->
-<div class="browser-warning" id="browserWarning">
-  This browser does not support Speech Recognition. Please use Chrome or Edge.
+<div class="browser-warning" id="browserWarning" data-i18n="browserWarning">
+  이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 또는 Edge를 사용해주세요.
 </div>
 
 <!-- Offline Banner -->
-<div class="browser-warning" id="offlineBanner">
-  You are offline. Recording and translation require an internet connection.
+<div class="browser-warning" id="offlineBanner" data-i18n="offlineWarning">
+  오프라인 상태입니다. 녹음과 번역에는 인터넷 연결이 필요합니다.
 </div>
 
 <!-- Read-only Banner -->
 <div class="readonly-banner" id="readonlyBanner">
-  <span>Shared transcript <span id="meetingDate"></span> — Read only</span>
-  <button id="btnNewSession">New Session</button>
+  <span><span data-i18n="sharedTranscript">공유된 회의록</span> <span id="meetingDate"></span> — <span data-i18n="readOnly">읽기 전용</span></span>
+  <button id="btnNewSession" data-i18n="newSession">새 세션</button>
 </div>
 
 <!-- Language Bar -->
 <div class="lang-bar" id="langBar">
-  <label>Voice</label>
+  <label data-i18n="voice">음성 언어</label>
   <select id="sourceLang">
-    <option value="auto" id="optAutoDetect" style="display:none">Auto-detect (Whisper)</option>
+    <option value="auto" id="optAutoDetect" disabled data-i18n="autoDetect">자동 감지 (OpenAI Whisper 필요)</option>
     <option value="en-US">English</option>
     <option value="ja-JP">Japanese</option>
-    <option value="ko-KR">Korean</option>
+    <option value="ko-KR" selected>Korean</option>
   </select>
   <span id="whisperStatus" class="whisper-status" style="display:none"></span>
-  <label>Translate</label>
+  <label data-i18n="translate">번역 대상</label>
   <div class="target-langs">
     <label class="check-label"><input type="checkbox" id="targetEn" value="en" checked> EN</label>
     <label class="check-label"><input type="checkbox" id="targetJa" value="ja" checked> JA</label>
@@ -642,11 +651,11 @@ body {
   <div class="empty-state" id="emptyState">
     <div>
       <div style="font-size:36px;margin-bottom:12px;">&#127908;</div>
-      <div style="font-size:16px;font-weight:500;margin-bottom:8px;">Ready to translate your meeting</div>
-      <div style="font-size:13px;line-height:1.8;">
-        1. Choose your <b>voice language</b> and <b>target languages</b> above<br>
-        2. Press <b>REC</b> to start — speech will be translated in real time<br>
-        3. Use <b>Share</b> or <b>Download</b> to save the transcript
+      <div style="font-size:16px;font-weight:500;margin-bottom:8px;" data-i18n="emptyTitle">회의 번역 준비 완료</div>
+      <div style="font-size:13px;line-height:1.8;" id="emptySteps">
+        1. 위에서 <b>음성 언어</b>와 <b>번역 대상</b>을 선택하세요<br>
+        2. <b>REC</b>을 눌러 시작 — 실시간으로 번역됩니다<br>
+        3. <b>공유</b> 또는 <b>다운로드</b>로 회의록을 저장하세요
       </div>
     </div>
   </div>
@@ -658,100 +667,100 @@ body {
 <!-- Note Section -->
 <div class="note-section" id="noteSection" style="height: 120px;">
   <div class="section-header" id="noteHeader">
-    <h3>&#128221; Notes</h3>
+    <h3>&#128221; <span data-i18n="notes">메모</span></h3>
     <button class="section-toggle" id="noteToggle" aria-label="Toggle notes section">&#9660;</button>
   </div>
-  <textarea class="note-textarea" id="noteTextarea" placeholder="Meeting notes, action items, or anything you want to remember..."></textarea>
+  <textarea class="note-textarea" id="noteTextarea" data-i18n-placeholder="notePlaceholder" placeholder="회의 메모, 할 일, 기억할 내용을 적어두세요..."></textarea>
 </div>
 
 <!-- Summary Section -->
 <div class="summary-section" id="summarySection" style="height: 150px;">
   <div class="section-header" id="summaryHeader">
-    <h3>&#128203; Meeting Summary</h3>
+    <h3>&#128203; <span data-i18n="meetingSummary">회의 요약</span></h3>
     <div class="section-header-actions">
-      <button class="refresh-btn" id="btnRefreshSummary">&#8635; Refresh</button>
+      <button class="refresh-btn" id="btnRefreshSummary">&#8635; <span data-i18n="refresh">새로고침</span></button>
       <button class="section-toggle" id="summaryToggle" aria-label="Toggle summary section">&#9660;</button>
     </div>
   </div>
   <div class="summary-content" id="summaryContent">
-    <div class="summary-disabled" id="summaryDisabled">
-      Auto-summarize your meeting with AI.<br>
-      Set up an <b>OpenAI</b> or <b>Anthropic</b> API key in <b>Settings</b> to enable.
+    <div class="summary-disabled" id="summaryDisabled" data-i18n-html="summaryDisabled">
+      AI로 회의를 자동 요약합니다.<br>
+      <b>설정</b>에서 <b>OpenAI</b> 또는 <b>Anthropic</b> API 키를 설정하세요.
     </div>
   </div>
 </div>
 
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
-  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; REC</button>
-  <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; Share</button>
-  <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; Download</button>
+  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span></button>
+  <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
+  <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; <span data-i18n="download">다운로드</span></button>
 </div>
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
-    <h2>Settings <button class="modal-close" id="btnCloseSettings">&times;</button></h2>
+    <h2><span data-i18n="settings">설정</span> <button class="modal-close" id="btnCloseSettings">&times;</button></h2>
 
     <div class="setting-group">
-      <label>Translation Provider</label>
+      <label data-i18n="translationProvider">번역 제공자</label>
       <div class="provider-options">
         <label class="provider-option">
           <input type="radio" name="provider" value="mymemory" checked>
           <div class="provider-info">
-            <div class="provider-name">MyMemory (Free)</div>
-            <div class="provider-desc">No setup needed. 5,000 chars/day free.</div>
+            <div class="provider-name" data-i18n="mymemoryName">MyMemory (무료)</div>
+            <div class="provider-desc" data-i18n="mymemoryDesc">설정 불필요. 하루 5,000자 무료.</div>
           </div>
         </label>
         <label class="provider-option">
           <input type="radio" name="provider" value="openai">
           <div class="provider-info">
-            <div class="provider-name">OpenAI GPT (Recommended)</div>
-            <div class="provider-desc">Best quality. ~$0.05/hour meeting.</div>
+            <div class="provider-name" data-i18n="openaiName">OpenAI GPT (추천)</div>
+            <div class="provider-desc" data-i18n="openaiDesc">최고 품질. 회의 시간당 ~$0.05.</div>
           </div>
         </label>
         <label class="provider-option">
           <input type="radio" name="provider" value="anthropic">
           <div class="provider-info">
-            <div class="provider-name">Anthropic Claude</div>
-            <div class="provider-desc">Excellent quality. API key required.</div>
+            <div class="provider-name" data-i18n="anthropicName">Anthropic Claude</div>
+            <div class="provider-desc" data-i18n="anthropicDesc">우수한 품질. API 키 필요.</div>
           </div>
         </label>
         <label class="provider-option">
           <input type="radio" name="provider" value="gas">
           <div class="provider-info">
-            <div class="provider-name">Google Apps Script</div>
-            <div class="provider-desc">Google Translate quality. Free, requires setup.</div>
+            <div class="provider-name" data-i18n="gasName">Google Apps Script</div>
+            <div class="provider-desc" data-i18n="gasDesc">Google 번역 품질. 무료, 설정 필요.</div>
           </div>
         </label>
       </div>
     </div>
 
     <div class="setting-group provider-fields" id="fieldsOpenai">
-      <label>OpenAI API Key</label>
+      <label data-i18n="openaiKeyLabel">OpenAI API Key</label>
       <input type="password" id="inputOpenaiKey" placeholder="sk-...">
-      <div class="hint">Stored locally. Never shared via URL.</div>
+      <div class="hint" data-i18n="storedLocally">로컬에 저장됩니다. URL로 공유되지 않습니다.</div>
     </div>
 
     <div class="setting-group provider-fields hidden" id="fieldsAnthropic">
-      <label>Anthropic API Key</label>
+      <label data-i18n="anthropicKeyLabel">Anthropic API Key</label>
       <input type="password" id="inputAnthropicKey" placeholder="sk-ant-...">
-      <div class="hint">Stored locally. Never shared via URL.</div>
+      <div class="hint" data-i18n="storedLocally">로컬에 저장됩니다. URL로 공유되지 않습니다.</div>
     </div>
 
     <div class="setting-group provider-fields hidden" id="fieldsGas">
-      <label>Google Apps Script Web App URL</label>
+      <label data-i18n="gasUrlLabel">Google Apps Script 웹 앱 URL</label>
       <input type="text" id="inputGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      <div class="hint">Deploy the GAS proxy script and paste the URL here.</div>
-      <button class="test-btn" id="btnTestGas">&#9889; Test Connection</button>
+      <div class="hint" data-i18n="gasHint">GAS 프록시 스크립트를 배포하고 URL을 붙여넣으세요.</div>
+      <button class="test-btn" id="btnTestGas">&#9889; <span data-i18n="testConnection">연결 테스트</span></button>
     </div>
 
     <div class="setting-group">
-      <label>Theme</label>
+      <label data-i18n="theme">테마</label>
       <div class="theme-toggle">
-        <button class="theme-btn" data-theme-val="light">Light</button>
-        <button class="theme-btn" data-theme-val="dark">Dark</button>
-        <button class="theme-btn active" data-theme-val="system">System</button>
+        <button class="theme-btn" data-theme-val="light" data-i18n="light">라이트</button>
+        <button class="theme-btn" data-theme-val="dark" data-i18n="dark">다크</button>
+        <button class="theme-btn active" data-theme-val="system" data-i18n="system">시스템</button>
       </div>
     </div>
   </div>
@@ -776,13 +785,200 @@ const HASH_UPDATE_DEBOUNCE = 2000;
 const SUMMARY_ENTRY_THRESHOLD = 10;
 
 // ============================================================
+// 1b. i18n
+// ============================================================
+const I18N = {
+  ko: {
+    pageTitle: '실시간 회의 번역기',
+    appTitle: '실시간 번역기',
+    settings: '설정',
+    browserWarning: '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 또는 Edge를 사용해주세요.',
+    offlineWarning: '오프라인 상태입니다. 녹음과 번역에는 인터넷 연결이 필요합니다.',
+    sharedTranscript: '공유된 회의록',
+    readOnly: '읽기 전용',
+    newSession: '새 세션',
+    voice: '음성 언어',
+    autoDetect: '자동 감지 (OpenAI Whisper 필요)',
+    translate: '번역 대상',
+    emptyTitle: '회의 번역 준비 완료',
+    emptySteps: '1. 위에서 <b>음성 언어</b>와 <b>번역 대상</b>을 선택하세요<br>2. <b>REC</b>을 눌러 시작 — 실시간으로 번역됩니다<br>3. <b>공유</b> 또는 <b>다운로드</b>로 회의록을 저장하세요',
+    notes: '메모',
+    notePlaceholder: '회의 메모, 할 일, 기억할 내용을 적어두세요...',
+    meetingSummary: '회의 요약',
+    refresh: '새로고침',
+    summaryDisabled: 'AI로 회의를 자동 요약합니다.<br><b>설정</b>에서 <b>OpenAI</b> 또는 <b>Anthropic</b> API 키를 설정하세요.',
+    rec: 'REC',
+    stop: 'STOP',
+    share: '공유',
+    download: '다운로드',
+    translationProvider: '번역 제공자',
+    mymemoryName: 'MyMemory (무료)',
+    mymemoryDesc: '설정 불필요. 하루 5,000자 무료.',
+    openaiName: 'OpenAI GPT (추천)',
+    openaiDesc: '최고 품질. 회의 시간당 ~$0.05.',
+    anthropicName: 'Anthropic Claude',
+    anthropicDesc: '우수한 품질. API 키 필요.',
+    gasName: 'Google Apps Script',
+    gasDesc: 'Google 번역 품질. 무료, 설정 필요.',
+    openaiKeyLabel: 'OpenAI API Key',
+    anthropicKeyLabel: 'Anthropic API Key',
+    gasUrlLabel: 'Google Apps Script 웹 앱 URL',
+    storedLocally: '로컬에 저장됩니다. URL로 공유되지 않습니다.',
+    gasHint: 'GAS 프록시 스크립트를 배포하고 URL을 붙여넣으세요.',
+    testConnection: '연결 테스트',
+    theme: '테마',
+    light: '라이트',
+    dark: '다크',
+    system: '시스템',
+    translating: '번역 중...',
+    listening: '듣는 중...',
+    processing: '처리 중...',
+    loading: '로딩 중...',
+    summaryUpdated: '요약이 업데이트되었습니다',
+    summaryRequiresLLM: 'LLM 제공자가 필요합니다',
+    noTranscript: '요약할 회의록이 없습니다',
+    startRecordingForSummary: '녹음을 시작하면 AI가 회의를 요약합니다.',
+    urlCopied: 'URL이 클립보드에 복사되었습니다!',
+    urlTooLong: 'URL이 매우 깁니다. 일부 플랫폼에서 잘릴 수 있습니다. JSON 다운로드를 권장합니다.',
+    noTranscriptToShare: '공유할 회의록이 없습니다',
+    noTranscriptToDownload: '다운로드할 회의록이 없습니다',
+    downloaded: '다운로드 완료!',
+    micError: '마이크 오류',
+    speechStopped: '음성 인식이 예기치 않게 중단되었습니다. 녹음을 다시 시작해주세요.',
+    restartFailed: '음성 인식 재시작에 실패했습니다',
+    cannotRecordOffline: '오프라인에서는 녹음할 수 없습니다',
+    translationFailed: '번역 실패',
+    translationError: '번역 오류',
+    mymemoryLimit: 'MyMemory 일일 한도를 초과했습니다. 설정에서 다른 제공자로 전환하세요.',
+    textTruncated: '500자 제한을 초과하여 텍스트가 잘렸습니다',
+    micAccessFailed: '마이크 접근에 실패했습니다',
+    unsupportedLang: '지원하지 않는 언어가 감지되었습니다',
+    gasUrlRequired: 'GAS URL을 먼저 입력해주세요',
+    gasSuccess: 'GAS 연결 성공!',
+    gasFailed: 'GAS 연결 실패',
+    gasNotOk: 'GAS가 응답했지만 상태가 ok가 아닙니다',
+    restoreSession: '이전 세션이 있습니다. 복원하시겠습니까?',
+    hashLoadFailed: '공유 데이터를 불러오는데 실패했습니다',
+    autoDetectRequiresKey: '자동 감지에는 OpenAI API Key가 필요합니다. 설정에서 입력해주세요.',
+    summaryFailed: '요약 실패',
+  },
+  en: {
+    pageTitle: 'Real-Time Meeting Translator',
+    appTitle: 'Real-Time Translator',
+    settings: 'Settings',
+    browserWarning: 'This browser does not support Speech Recognition. Please use Chrome or Edge.',
+    offlineWarning: 'You are offline. Recording and translation require an internet connection.',
+    sharedTranscript: 'Shared transcript',
+    readOnly: 'Read only',
+    newSession: 'New Session',
+    voice: 'Voice',
+    autoDetect: 'Auto-detect (requires OpenAI Whisper)',
+    translate: 'Translate',
+    emptyTitle: 'Ready to translate your meeting',
+    emptySteps: '1. Choose your <b>voice language</b> and <b>target languages</b> above<br>2. Press <b>REC</b> to start — speech will be translated in real time<br>3. Use <b>Share</b> or <b>Download</b> to save the transcript',
+    notes: 'Notes',
+    notePlaceholder: 'Meeting notes, action items, or anything you want to remember...',
+    meetingSummary: 'Meeting Summary',
+    refresh: 'Refresh',
+    summaryDisabled: 'Auto-summarize your meeting with AI.<br>Set up an <b>OpenAI</b> or <b>Anthropic</b> API key in <b>Settings</b> to enable.',
+    rec: 'REC',
+    stop: 'STOP',
+    share: 'Share',
+    download: 'Download',
+    translationProvider: 'Translation Provider',
+    mymemoryName: 'MyMemory (Free)',
+    mymemoryDesc: 'No setup needed. 5,000 chars/day free.',
+    openaiName: 'OpenAI GPT (Recommended)',
+    openaiDesc: 'Best quality. ~$0.05/hour meeting.',
+    anthropicName: 'Anthropic Claude',
+    anthropicDesc: 'Excellent quality. API key required.',
+    gasName: 'Google Apps Script',
+    gasDesc: 'Google Translate quality. Free, requires setup.',
+    openaiKeyLabel: 'OpenAI API Key',
+    anthropicKeyLabel: 'Anthropic API Key',
+    gasUrlLabel: 'Google Apps Script Web App URL',
+    storedLocally: 'Stored locally. Never shared via URL.',
+    gasHint: 'Deploy the GAS proxy script and paste the URL here.',
+    testConnection: 'Test Connection',
+    theme: 'Theme',
+    light: 'Light',
+    dark: 'Dark',
+    system: 'System',
+    translating: 'Translating...',
+    listening: 'Listening...',
+    processing: 'Processing...',
+    loading: 'Loading...',
+    summaryUpdated: 'Summary updated',
+    summaryRequiresLLM: 'Summary requires LLM provider',
+    noTranscript: 'No transcript to summarize',
+    startRecordingForSummary: 'Start recording to generate an AI summary of your meeting.',
+    urlCopied: 'URL copied to clipboard!',
+    urlTooLong: 'URL is very long and may be truncated on some platforms. Consider downloading JSON instead.',
+    noTranscriptToShare: 'No transcript to share',
+    noTranscriptToDownload: 'No transcript to download',
+    downloaded: 'Downloaded!',
+    micError: 'Mic error',
+    speechStopped: 'Speech recognition stopped unexpectedly. Please restart recording.',
+    restartFailed: 'Failed to restart speech recognition',
+    cannotRecordOffline: 'Cannot start recording while offline',
+    translationFailed: 'Translation failed',
+    translationError: 'Translation error',
+    mymemoryLimit: 'MyMemory daily limit exceeded. Consider switching to another provider in Settings.',
+    textTruncated: 'Text exceeded 500-char limit and was truncated',
+    micAccessFailed: 'Microphone access failed',
+    unsupportedLang: 'Unsupported language detected',
+    gasUrlRequired: 'Please enter a GAS URL first',
+    gasSuccess: 'GAS connection successful!',
+    gasFailed: 'GAS connection failed',
+    gasNotOk: 'GAS responded but status is not ok',
+    restoreSession: 'A previous session was found. Would you like to restore it?',
+    hashLoadFailed: 'Failed to load shared data',
+    autoDetectRequiresKey: 'Auto-detect requires an OpenAI API Key. Please set it up in Settings.',
+    summaryFailed: 'Summary failed',
+  }
+};
+
+let currentLocale = localStorage.getItem('rt_locale') || 'ko';
+
+function t(key) {
+  return I18N[currentLocale]?.[key] || I18N.en[key] || key;
+}
+
+function setLocale(locale) {
+  currentLocale = locale;
+  localStorage.setItem('rt_locale', locale);
+  document.documentElement.lang = locale;
+  document.title = t('pageTitle');
+
+  // Update all data-i18n elements
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  $$('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $$('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  $$('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+
+  // Update empty state steps (innerHTML)
+  const stepsEl = $('#emptySteps');
+  if (stepsEl) stepsEl.innerHTML = t('emptySteps');
+
+  // Update locale toggle button text
+  const localeBtn = $('#btnLocale');
+  if (localeBtn) localeBtn.textContent = locale === 'ko' ? 'EN' : 'KO';
+
+  // Update note placeholder for readonly mode
+  if (!state.isReadOnly) {
+    dom.noteTextarea.placeholder = t('notePlaceholder');
+  }
+}
+
+// ============================================================
 // 2. State
 // ============================================================
 const state = {
   isRecording: false,
   isReadOnly: false,
-  sourceLang: 'en-US',
-  targetLangs: ['ja', 'ko'],
+  sourceLang: localStorage.getItem('rt_source_lang') || 'ko-KR',
+  targetLangs: JSON.parse(localStorage.getItem('rt_target_langs') || 'null') || ['en', 'ja'],
   entries: [],
   interimText: '',
   note: '',
@@ -806,6 +1002,7 @@ const dom = {
   btnRec: $('#btnRec'),
   btnShare: $('#btnShare'),
   btnDownload: $('#btnDownload'),
+  btnLocale: $('#btnLocale'),
   btnSettings: $('#btnSettings'),
   btnCloseSettings: $('#btnCloseSettings'),
   btnNewSession: $('#btnNewSession'),
@@ -925,7 +1122,7 @@ const translators = {
       if (settings.mymemoryEmail) params.set('de', settings.mymemoryEmail);
       const res = await fetchWithTimeout(`https://api.mymemory.translated.net/get?${params}`);
       if (!res.ok) {
-        if (res.status === 429) throw new Error('MyMemory daily limit exceeded. Consider switching to another provider in Settings.');
+        if (res.status === 429) throw new Error(t('mymemoryLimit'));
         throw new Error(`MyMemory API error: ${res.status}`);
       }
       const data = await res.json();
@@ -933,7 +1130,7 @@ const translators = {
       let result = data.responseData.translatedText;
       if (truncated) {
         result += ' [truncated]';
-        showToast('Text exceeded 500-char limit and was truncated', 'info');
+        showToast(t('textTruncated'), 'info');
       }
       return result;
     },
@@ -1130,8 +1327,8 @@ async function translateEntry(entry) {
       entry.tr[targetLang] = await translateWithRetry(translator, entry.o, entry.s, targetLang);
     } catch (e) {
       console.error(`Translation error (${entry.s}->${targetLang}):`, e);
-      entry.tr[targetLang] = `[Translation error]`;
-      showToast(`Translation failed: ${e.message}`, 'error');
+      entry.tr[targetLang] = `[${t('translationError')}]`;
+      showToast(`${t('translationFailed')}: ${e.message}`, 'error');
     }
   });
   await Promise.all(promises);
@@ -1204,7 +1401,7 @@ function initSpeechRecognition() {
     if (event.error === 'no-speech') return;
     if (event.error === 'aborted') return;
     console.error('Speech recognition error:', event.error);
-    showToast(`Mic error: ${event.error}`, 'error');
+    showToast(`${t('micError')}: ${event.error}`, 'error');
   };
 
   let restartAttempts = 0;
@@ -1212,14 +1409,14 @@ function initSpeechRecognition() {
     if (state.isRecording) {
       restartAttempts++;
       if (restartAttempts > 5) {
-        showToast('Speech recognition stopped unexpectedly. Please restart recording.', 'error');
+        showToast(t('speechStopped'), 'error');
         stopRecording();
         restartAttempts = 0;
         return;
       }
       setTimeout(() => {
         try { recognition.start(); } catch(e) {
-          showToast('Failed to restart speech recognition', 'error');
+          showToast(t('restartFailed'), 'error');
           stopRecording();
         }
       }, 200 * restartAttempts);
@@ -1269,7 +1466,7 @@ async function initWhisperRecording() {
     return true;
   } catch (e) {
     console.error('Whisper mic access error:', e);
-    showToast(`Microphone access failed: ${e.message}`, 'error');
+    showToast(`${t('micAccessFailed')}: ${e.message}`, 'error');
     return false;
   }
 }
@@ -1280,7 +1477,7 @@ function startWhisperChunkCycle() {
   function recordNextChunk() {
     whisperAudioChunks = [];
     try { whisperMediaRecorder.start(); } catch(e) { return; }
-    updateWhisperStatus('Listening...');
+    updateWhisperStatus(t('listening'));
   }
 
   whisperMediaRecorder.onstop = () => {
@@ -1321,7 +1518,7 @@ function stopWhisperChunkCycle() {
 async function processWhisperChunk(audioBlob) {
   if (audioBlob.size < 1000) return;
 
-  updateWhisperStatus('Processing...');
+  updateWhisperStatus(t('processing'));
 
   const settings = getSettings();
   if (!settings.openaiKey) return;
@@ -1348,10 +1545,10 @@ async function processWhisperChunk(audioBlob) {
     handleWhisperResult(data);
   } catch (e) {
     console.error('Whisper API error:', e);
-    showToast(`Whisper: ${e.message}`, 'error');
+    showToast(`Whisper: ${e.message}`, 'error');  // Whisper is a product name, keep as-is
   } finally {
     if (state.isRecording && state.useWhisper) {
-      updateWhisperStatus('Listening...');
+      updateWhisperStatus(t('listening'));
     }
   }
 }
@@ -1377,7 +1574,7 @@ function handleWhisperResult(data) {
   scheduleHashUpdate();
 
   if (!detectedLang) {
-    showToast(`Unsupported language detected: ${data.language}`, 'info');
+    showToast(`${t('unsupportedLang')}: ${data.language}`, 'info');
     return;
   }
 
@@ -1397,7 +1594,7 @@ function updateWhisperStatus(text) {
 
 async function startRecording() {
   if (!navigator.onLine) {
-    showToast('Cannot start recording while offline', 'error');
+    showToast(t('cannotRecordOffline'), 'error');
     return;
   }
 
@@ -1423,7 +1620,7 @@ async function startRecording() {
   }
 
   dom.btnRec.classList.add('recording');
-  dom.btnRec.innerHTML = '&#9632; STOP';
+  dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span>`;
   dom.emptyState.style.display = 'none';
 }
 
@@ -1437,7 +1634,7 @@ function stopRecording() {
   }
 
   dom.btnRec.classList.remove('recording');
-  dom.btnRec.innerHTML = '&#9679; REC';
+  dom.btnRec.innerHTML = `&#9679; <span data-i18n="rec">${t('rec')}</span>`;
   state.interimText = '';
   clearTimeout(interimTranslateTimer);
   interimTranslateAbort = true;
@@ -1504,7 +1701,7 @@ function loadFromHash() {
     return true;
   } catch (e) {
     console.error('Failed to load hash data:', e);
-    showToast('Failed to load shared data', 'error');
+    showToast(t('hashLoadFailed'), 'error');
     return false;
   }
 }
@@ -1539,7 +1736,7 @@ function renderEntry(entry, index) {
       <span class="lang-tag ${entry.s}">${entry.s.toUpperCase()}</span>
     </div>
     <div class="entry-original">${escapeHtml(entry.o)}</div>
-    <div class="entry-translations" id="translations-${index}">${translationsHtml || '<span style="color:var(--text-tertiary)">Translating...</span>'}</div>
+    <div class="entry-translations" id="translations-${index}">${translationsHtml || `<span style="color:var(--text-tertiary)">${t('translating')}</span>`}</div>
   `;
 
   dom.transcriptArea.appendChild(div);
@@ -1609,7 +1806,7 @@ function renderInterimEntry(entry) {
       <span class="lang-tag ${langCode}">${langCode.toUpperCase()}</span>
     </div>
     <div class="entry-original">${escapeHtml(entry.o)}</div>
-    <div class="entry-translations" id="translations-interim"><span style="color:var(--text-tertiary)">Translating...</span></div>
+    <div class="entry-translations" id="translations-interim"><span style="color:var(--text-tertiary)">${t('translating')}</span></div>
   `;
 
   // Insert before the interim text element
@@ -1679,7 +1876,7 @@ function renderSummary() {
   if (state.summary) {
     textEl.innerHTML = markdownToHtml(state.summary);
   } else {
-    textEl.innerHTML = '<span style="color:var(--text-tertiary)">Start recording to generate an AI summary of your meeting.</span>';
+    textEl.innerHTML = `<span style="color:var(--text-tertiary)">${t('startRecordingForSummary')}</span>`;
   }
 }
 
@@ -1728,7 +1925,7 @@ function setReadOnlyMode(readOnly) {
       dateEl.textContent = '(' + d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) + ')';
     }
   } else {
-    dom.noteTextarea.placeholder = 'Meeting notes, action items, or anything you want to remember...';
+    dom.noteTextarea.placeholder = t('notePlaceholder');
   }
 }
 
@@ -1740,32 +1937,32 @@ let summaryLoading = false;
 async function refreshSummary() {
   const translator = getTranslator();
   if (!translator.supportsLLMFeatures || !translator.summarize) {
-    showToast('Summary requires LLM provider', 'error');
+    showToast(t('summaryRequiresLLM'), 'error');
     return;
   }
   if (state.entries.length === 0) {
-    showToast('No transcript to summarize', 'error');
+    showToast(t('noTranscript'), 'error');
     return;
   }
   if (summaryLoading) return;
 
   summaryLoading = true;
   dom.btnRefreshSummary.classList.add('loading');
-  dom.btnRefreshSummary.textContent = '⏳ Loading...';
+  dom.btnRefreshSummary.textContent = `⏳ ${t('loading')}`;
 
   try {
     state.summary = await translator.summarize(state.entries);
     state.summaryEntryCount = state.entries.length;
     renderSummary();
     scheduleHashUpdate();
-    showToast('Summary updated', 'success');
+    showToast(t('summaryUpdated'), 'success');
   } catch (e) {
     console.error('Summary error:', e);
-    showToast(`Summary failed: ${e.message}`, 'error');
+    showToast(`${t('summaryFailed')}: ${e.message}`, 'error');
   } finally {
     summaryLoading = false;
     dom.btnRefreshSummary.classList.remove('loading');
-    dom.btnRefreshSummary.innerHTML = '&#8635; Refresh';
+    dom.btnRefreshSummary.innerHTML = `&#8635; ${t('refresh')}`;
   }
 }
 
@@ -1803,12 +2000,14 @@ function updateWhisperAvailability() {
   const autoOption = $('#optAutoDetect');
   if (!autoOption) return;
   if (settings.openaiKey) {
-    autoOption.style.display = '';
+    autoOption.disabled = false;
   } else {
-    autoOption.style.display = 'none';
+    autoOption.disabled = true;
     if (state.sourceLang === 'auto') {
-      state.sourceLang = 'en-US';
-      dom.sourceLang.value = 'en-US';
+      state.sourceLang = localStorage.getItem('rt_source_lang') || 'ko-KR';
+      if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
+      dom.sourceLang.value = state.sourceLang;
+      localStorage.setItem('rt_source_lang', state.sourceLang);
       updateTargetCheckboxes();
     }
   }
@@ -1904,7 +2103,7 @@ function initSectionToggles() {
 // ============================================================
 async function shareUrl() {
   if (state.entries.length === 0) {
-    showToast('No transcript to share', 'error');
+    showToast(t('noTranscriptToShare'), 'error');
     return;
   }
   const json = JSON.stringify(serializeState());
@@ -1915,12 +2114,12 @@ async function shareUrl() {
   const url = base + '#' + compressed;
 
   if (url.length > 8000) {
-    showToast('URL is very long and may be truncated on some platforms. Consider downloading JSON instead.', 'error');
+    showToast(t('urlTooLong'), 'error');
   }
 
   try {
     await navigator.clipboard.writeText(url);
-    showToast('URL copied to clipboard!', 'success');
+    showToast(t('urlCopied'), 'success');
   } catch (e) {
     // Fallback
     const textarea = document.createElement('textarea');
@@ -1929,13 +2128,13 @@ async function shareUrl() {
     textarea.select();
     document.execCommand('copy');
     textarea.remove();
-    showToast('URL copied to clipboard!', 'success');
+    showToast(t('urlCopied'), 'success');
   }
 }
 
 function downloadJson() {
   if (state.entries.length === 0) {
-    showToast('No transcript to download', 'error');
+    showToast(t('noTranscriptToDownload'), 'error');
     return;
   }
   const data = serializeState();
@@ -1947,7 +2146,7 @@ function downloadJson() {
   a.download = `meeting-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('Downloaded!', 'success');
+  showToast(t('downloaded'), 'success');
 }
 
 // ============================================================
@@ -1968,9 +2167,25 @@ function initEventListeners() {
   dom.btnShare.addEventListener('click', shareUrl);
   dom.btnDownload.addEventListener('click', downloadJson);
 
+  // Locale toggle
+  $('#btnLocale').addEventListener('click', () => {
+    setLocale(currentLocale === 'ko' ? 'en' : 'ko');
+  });
+
   // Source language change
   dom.sourceLang.addEventListener('change', (e) => {
-    state.sourceLang = e.target.value;
+    const val = e.target.value;
+    // Guard: auto-detect requires OpenAI key
+    if (val === 'auto') {
+      const settings = getSettings();
+      if (!settings.openaiKey) {
+        showToast(t('autoDetectRequiresKey'), 'error');
+        e.target.value = state.sourceLang;
+        return;
+      }
+    }
+    state.sourceLang = val;
+    localStorage.setItem('rt_source_lang', val);
     if (state.isRecording) {
       stopRecording();
       startRecording();
@@ -1982,6 +2197,7 @@ function initEventListeners() {
   $$('.target-langs input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
+      localStorage.setItem('rt_target_langs', JSON.stringify(state.targetLangs));
     });
   });
 
@@ -2028,19 +2244,19 @@ function initEventListeners() {
   dom.btnTestGas.addEventListener('click', async () => {
     const url = $('#inputGasUrl').value.trim();
     if (!url) {
-      showToast('Please enter a GAS URL first', 'error');
+      showToast(t('gasUrlRequired'), 'error');
       return;
     }
     try {
       const res = await fetchWithTimeout(url, {}, 10000);
       const data = await res.json();
       if (data.status === 'ok') {
-        showToast('GAS connection successful!', 'success');
+        showToast(t('gasSuccess'), 'success');
       } else {
-        showToast('GAS responded but status is not ok', 'error');
+        showToast(t('gasNotOk'), 'error');
       }
     } catch (e) {
-      showToast(`GAS connection failed: ${e.message}`, 'error');
+      showToast(`${t('gasFailed')}: ${e.message}`, 'error');
     }
   });
 
@@ -2084,6 +2300,16 @@ function updateTargetCheckboxes() {
 // 17. Initialization
 // ============================================================
 function init() {
+  // Apply locale
+  setLocale(currentLocale);
+
+  // Restore source language & target languages from preferences
+  dom.sourceLang.value = state.sourceLang;
+  // Sync target checkboxes with saved state
+  $$('.target-langs input[type="checkbox"]').forEach(cb => {
+    cb.checked = state.targetLangs.includes(cb.value);
+  });
+
   // Check for speech recognition support
   initSpeechRecognition();
 
@@ -2112,14 +2338,14 @@ function init() {
       try {
         const data = JSON.parse(backup);
         if (data.v === 1 && data.t && data.t.length > 0) {
-          if (confirm('A previous session was found. Would you like to restore it?')) {
+          if (confirm(t('restoreSession'))) {
             if (data.sl === 'auto') {
               state.sourceLang = 'auto';
             } else {
               const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
               if (slEntry) state.sourceLang = slEntry[0];
             }
-            state.targetLangs = data.tl || ['ja', 'ko'];
+            state.targetLangs = data.tl || ['en', 'ja'];
             state.entries = data.t || [];
             state.note = data.n || '';
             state.summary = data.sum || '';

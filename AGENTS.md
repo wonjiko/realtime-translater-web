@@ -36,19 +36,53 @@
 
 ### 워크플로우 개요
 
+두 가지 워크플로우가 있으며, 작업 규모에 따라 선택한다.
+
+#### 경량 검증 (대부분의 기능 추가/개선)
+
+```
+구현 → verification-plan 작성 → 검증 → verification-result 작성
+```
+
+- 문서 위치: `docs/features/{feature-name}-verification-plan.md`
+- 템플릿: [docs/templates/verification-plan.template.md](docs/templates/verification-plan.template.md)
+- 예시: [docs/features/i18n-verification-plan.md](docs/features/i18n-verification-plan.md)
+
+#### 전체 라이프사이클 (메이저 릴리즈, 아키텍처 변경)
+
 ```
 PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
 ```
 
+- 문서 위치: `docs/{version}/`
+- 템플릿: [docs/templates/](docs/templates/)
+- 예시: [docs/v1/](docs/v1/)
+
 문서 작성 규칙: [docs/RULES.md](docs/RULES.md)
-템플릿: [docs/templates/](docs/templates/)
-예시: [docs/v1/](docs/v1/)
 
 ### 작업별 지침
 
-#### 1. 새 기능 구현
+#### A. 경량 검증 워크플로우
 
-**입력**: `docs/features/{feature-name}/PRD.md`
+##### A-1. 기능 구현 + 검증 플랜 작성
+
+1. 기존 코드의 동작을 먼저 파악한다
+2. `index.html`에 구현한다
+3. `docs/templates/verification-plan.template.md`를 `docs/features/{feature-name}-verification-plan.md`로 복사
+4. 변경 사항 요약 + 카테고리별 체크리스트 + 엣지 케이스를 작성한다
+5. 제목 형식: `# {피처명} — 검증 플랜`
+
+##### A-2. 검증 실행 + 결과 작성
+
+1. verification-plan의 체크리스트를 코드 레벨 또는 브라우저에서 검증한다
+2. 필요 시 `{feature-name}-verification-result.md`를 작성한다
+3. 결과에는 검증 기준 문서 링크, 일시, 방법, PASS/FAIL을 기록한다
+
+#### B. 전체 라이프사이클 워크플로우
+
+##### B-1. 새 기능 구현
+
+**입력**: `docs/{version}/PRD.md`
 
 1. PRD.md의 모든 기능 요구사항을 읽는다
 2. 비기능 요구사항(호환성, 반응형, 성능, 보안)을 확인한다
@@ -61,9 +95,9 @@ PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
 - 기존 기능을 깨뜨리지 않도록 기존 코드의 동작을 먼저 파악한다
 - 새로운 외부 의존성을 추가하기 전에 정말 필요한지 검토한다
 
-#### 2. 테스트 검증
+##### B-2. 테스트 검증
 
-**입력**: `docs/features/{feature-name}/TESTING.md` + 소스 코드
+**입력**: `docs/{version}/TESTING.md` + 소스 코드
 
 1. TESTING.md의 사전 준비 항목을 확인한다
 2. 각 테스트 시나리오를 코드 레벨에서 검증한다:
@@ -74,9 +108,9 @@ PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
 
 **출력 형식**: 각 시나리오별 PASS/FAIL + 발견 이슈 목록
 
-#### 3. 테스트 리포트 작성
+##### B-3. 테스트 리포트 작성
 
-**입력**: 검증 결과 + `docs/features/{feature-name}/PRD.md`
+**입력**: 검증 결과 + `docs/{version}/PRD.md`
 
 1. `docs/templates/TESTING-REPORT.template.md`를 복사한다
 2. [docs/RULES.md](docs/RULES.md)의 TESTING-REPORT 규칙을 따른다:
@@ -86,9 +120,9 @@ PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
    - Critical/High 이슈는 문제 코드 + 수정 제안 코드 포함
 3. Priority Roadmap(P0/P1/P2)을 도출한다
 
-#### 4. 개선 계획 수립
+##### B-4. 개선 계획 수립
 
-**입력**: `docs/features/{feature-name}/TESTING-REPORT.md`
+**입력**: `docs/{version}/TESTING-REPORT.md`
 
 1. `docs/templates/PLAN.template.md`를 복사한다
 2. [docs/RULES.md](docs/RULES.md)의 PLAN 규칙을 따른다:
@@ -97,9 +131,9 @@ PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
    - 코드 변경 예시 포함
 3. Out of Scope 항목을 이유와 함께 명시한다
 
-#### 5. 개선 구현
+##### B-5. 개선 구현
 
-**입력**: `docs/features/{feature-name}/PLAN.md`
+**입력**: `docs/{version}/PLAN.md`
 
 1. Phase 순서(P0 → P1 → P2)대로 구현한다
 2. 각 항목의 "해결" 섹션에 기술된 방법을 따른다

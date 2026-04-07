@@ -1,6 +1,6 @@
-# 검증 결과
+# 중간 번역 + 버튼 통합 — 검증 결과
 
-> 검증 기준: `docs/verification-plan.md`
+> 검증 기준: [`interim-translation-verification-plan.md`](./interim-translation-verification-plan.md)
 > 검증 일시: 2026-04-08
 > 검증 방법: 코드 정적 분석 + 브라우저 자동화 테스트
 

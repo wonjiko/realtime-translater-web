@@ -1,4 +1,4 @@
-# Whisper Auto-Detect 기능 검증 체크리스트
+# Whisper Auto-Detect — 검증 플랜
 
 총점: **100점**
 
