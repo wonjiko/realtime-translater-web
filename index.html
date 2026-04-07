@@ -130,6 +130,11 @@ body {
   width: 18px; height: 18px; cursor: pointer;
   accent-color: var(--accent);
 }
+.whisper-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
 
 /* Read-only Banner */
 .readonly-banner {
@@ -219,6 +224,13 @@ body {
   color: var(--text-tertiary);
   font-style: italic;
   font-size: 14px;
+}
+.interim-entry {
+  opacity: 0.55;
+  border-left: 3px solid var(--text-tertiary);
+}
+.interim-entry .translation-line span {
+  font-style: italic;
 }
 .empty-state {
   flex: 1;
@@ -381,14 +393,15 @@ body {
 .btn-rec { background: var(--red); color: white; }
 .btn-rec:hover { background: var(--red-hover); }
 .btn-rec.recording {
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: rec-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
+  background: #b91c1c;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.btn-rec.recording:hover { background: #991b1b; }
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.15), 0 0 20px rgba(239, 68, 68, 0.2); }
 }
-.btn-stop { background: var(--bg-tertiary); color: var(--text); }
-.btn-stop:hover { background: var(--border); }
 .btn-share { background: var(--accent); color: white; }
 .btn-share:hover { background: var(--accent-hover); }
 .btn-download { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
@@ -602,7 +615,7 @@ body {
 
 <!-- Read-only Banner -->
 <div class="readonly-banner" id="readonlyBanner">
-  <span>Shared transcript — Read only</span>
+  <span>Shared transcript <span id="meetingDate"></span> — Read only</span>
   <button id="btnNewSession">New Session</button>
 </div>
 
@@ -610,10 +623,12 @@ body {
 <div class="lang-bar" id="langBar">
   <label>Voice</label>
   <select id="sourceLang">
+    <option value="auto" id="optAutoDetect" style="display:none">Auto-detect (Whisper)</option>
     <option value="en-US">English</option>
     <option value="ja-JP">Japanese</option>
     <option value="ko-KR">Korean</option>
   </select>
+  <span id="whisperStatus" class="whisper-status" style="display:none"></span>
   <label>Translate</label>
   <div class="target-langs">
     <label class="check-label"><input type="checkbox" id="targetEn" value="en" checked> EN</label>
@@ -625,8 +640,15 @@ body {
 <!-- Transcript Area -->
 <div class="transcript-area" id="transcriptArea" aria-live="polite" role="log">
   <div class="empty-state" id="emptyState">
-    Press the record button to start real-time translation.<br>
-    Select your voice language and target languages above.
+    <div>
+      <div style="font-size:36px;margin-bottom:12px;">&#127908;</div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:8px;">Ready to translate your meeting</div>
+      <div style="font-size:13px;line-height:1.8;">
+        1. Choose your <b>voice language</b> and <b>target languages</b> above<br>
+        2. Press <b>REC</b> to start — speech will be translated in real time<br>
+        3. Use <b>Share</b> or <b>Download</b> to save the transcript
+      </div>
+    </div>
   </div>
 </div>
 
@@ -639,7 +661,7 @@ body {
     <h3>&#128221; Notes</h3>
     <button class="section-toggle" id="noteToggle" aria-label="Toggle notes section">&#9660;</button>
   </div>
-  <textarea class="note-textarea" id="noteTextarea" placeholder="Type your notes here..."></textarea>
+  <textarea class="note-textarea" id="noteTextarea" placeholder="Meeting notes, action items, or anything you want to remember..."></textarea>
 </div>
 
 <!-- Summary Section -->
@@ -653,8 +675,8 @@ body {
   </div>
   <div class="summary-content" id="summaryContent">
     <div class="summary-disabled" id="summaryDisabled">
-      Meeting summary requires LLM provider (OpenAI or Anthropic).<br>
-      Configure in Settings.
+      Auto-summarize your meeting with AI.<br>
+      Set up an <b>OpenAI</b> or <b>Anthropic</b> API key in <b>Settings</b> to enable.
     </div>
   </div>
 </div>
@@ -662,7 +684,6 @@ body {
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
   <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; REC</button>
-  <button class="ctrl-btn btn-stop" id="btnStop" disabled aria-label="Stop recording">&#9632; Stop</button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; Share</button>
   <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; Download</button>
 </div>
@@ -746,6 +767,11 @@ const LANG_MAP = {
   'ko-KR': { code: 'ko', label: 'KO', name: 'Korean' },
 };
 const LANG_NAMES = { en: 'English', ja: 'Japanese', ko: 'Korean' };
+const WHISPER_LANG_TO_APP = {
+  'english': 'en', 'japanese': 'ja', 'korean': 'ko',
+  'en': 'en', 'ja': 'ja', 'ko': 'ko',
+};
+const WHISPER_CHUNK_DURATION_MS = 4000;
 const HASH_UPDATE_DEBOUNCE = 2000;
 const SUMMARY_ENTRY_THRESHOLD = 10;
 
@@ -762,6 +788,7 @@ const state = {
   note: '',
   summary: '',
   summaryEntryCount: 0,
+  useWhisper: false,
 };
 
 // ============================================================
@@ -777,7 +804,6 @@ const dom = {
   summaryContent: $('#summaryContent'),
   summaryDisabled: $('#summaryDisabled'),
   btnRec: $('#btnRec'),
-  btnStop: $('#btnStop'),
   btnShare: $('#btnShare'),
   btnDownload: $('#btnDownload'),
   btnSettings: $('#btnSettings'),
@@ -1115,6 +1141,9 @@ async function translateEntry(entry) {
 // 8. Speech Recognition
 // ============================================================
 let recognition = null;
+let interimTranslateTimer = null;
+let interimEntry = null;
+let interimTranslateAbort = false;
 
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1138,6 +1167,11 @@ function initSpeechRecognition() {
       if (result.isFinal) {
         const text = result[0].transcript.trim();
         if (text) {
+          // Cancel pending interim translation
+          clearTimeout(interimTranslateTimer);
+          interimTranslateAbort = true;
+          removeInterimEntry();
+
           const entry = {
             ts: Math.floor(Date.now() / 1000),
             s: LANG_MAP[state.sourceLang].code,
@@ -1162,6 +1196,7 @@ function initSpeechRecognition() {
     if (interim) {
       state.interimText = interim;
       renderInterim(interim);
+      scheduleInterimTranslation(interim);
     }
   };
 
@@ -1196,34 +1231,217 @@ function initSpeechRecognition() {
   return true;
 }
 
-function startRecording() {
+// ============================================================
+// 8b. Whisper Auto-Detect Pipeline
+// ============================================================
+let whisperMediaRecorder = null;
+let whisperStream = null;
+let whisperChunkTimer = null;
+let whisperAudioChunks = [];
+let whisperMimeType = 'audio/webm';
+
+function getSupportedMimeType() {
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
+}
+
+function getFileExtension(mimeType) {
+  if (mimeType.includes('webm')) return 'webm';
+  if (mimeType.includes('mp4')) return 'mp4';
+  if (mimeType.includes('ogg')) return 'ogg';
+  return 'webm';
+}
+
+async function initWhisperRecording() {
+  try {
+    whisperStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = getSupportedMimeType();
+    whisperMimeType = mime || 'audio/webm';
+    whisperMediaRecorder = new MediaRecorder(whisperStream, {
+      mimeType: mime || undefined,
+    });
+    whisperMediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) whisperAudioChunks.push(event.data);
+    };
+    return true;
+  } catch (e) {
+    console.error('Whisper mic access error:', e);
+    showToast(`Microphone access failed: ${e.message}`, 'error');
+    return false;
+  }
+}
+
+function startWhisperChunkCycle() {
+  if (!whisperMediaRecorder) return;
+
+  function recordNextChunk() {
+    whisperAudioChunks = [];
+    try { whisperMediaRecorder.start(); } catch(e) { return; }
+    updateWhisperStatus('Listening...');
+  }
+
+  whisperMediaRecorder.onstop = () => {
+    if (whisperAudioChunks.length > 0) {
+      const audioBlob = new Blob(whisperAudioChunks, {
+        type: whisperMimeType,
+      });
+      whisperAudioChunks = [];
+      processWhisperChunk(audioBlob);
+    }
+    if (state.isRecording && state.useWhisper) {
+      recordNextChunk();
+    }
+  };
+
+  recordNextChunk();
+  whisperChunkTimer = setInterval(() => {
+    if (whisperMediaRecorder && whisperMediaRecorder.state === 'recording') {
+      whisperMediaRecorder.stop();
+    }
+  }, WHISPER_CHUNK_DURATION_MS);
+}
+
+function stopWhisperChunkCycle() {
+  clearInterval(whisperChunkTimer);
+  whisperChunkTimer = null;
+  if (whisperMediaRecorder && whisperMediaRecorder.state === 'recording') {
+    try { whisperMediaRecorder.stop(); } catch(e) { /* ignore */ }
+  }
+  if (whisperStream) {
+    whisperStream.getTracks().forEach(t => t.stop());
+    whisperStream = null;
+  }
+  whisperMediaRecorder = null;
+  updateWhisperStatus('');
+}
+
+async function processWhisperChunk(audioBlob) {
+  if (audioBlob.size < 1000) return;
+
+  updateWhisperStatus('Processing...');
+
+  const settings = getSettings();
+  if (!settings.openaiKey) return;
+
+  const ext = getFileExtension(audioBlob.type || 'audio/webm');
+  const formData = new FormData();
+  formData.append('file', audioBlob, `audio.${ext}`);
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'verbose_json');
+
+  try {
+    const res = await fetchWithTimeout('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${settings.openaiKey}` },
+      body: formData,
+    }, 15000);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Whisper API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    handleWhisperResult(data);
+  } catch (e) {
+    console.error('Whisper API error:', e);
+    showToast(`Whisper: ${e.message}`, 'error');
+  } finally {
+    if (state.isRecording && state.useWhisper) {
+      updateWhisperStatus('Listening...');
+    }
+  }
+}
+
+function handleWhisperResult(data) {
+  const text = data.text?.trim();
+  if (!text) return;
+
+  const detectedLang = WHISPER_LANG_TO_APP[data.language?.toLowerCase()];
+
+  const entry = {
+    ts: Math.floor(Date.now() / 1000),
+    s: detectedLang || data.language?.substring(0, 2) || '??',
+    o: text,
+    tr: {},
+  };
+
+  state.entries.push(entry);
+  const idx = state.entries.length - 1;
+  state.interimText = '';
+  removeInterim();
+  renderEntry(entry, idx);
+  scheduleHashUpdate();
+
+  if (!detectedLang) {
+    showToast(`Unsupported language detected: ${data.language}`, 'info');
+    return;
+  }
+
+  translateEntry(entry).then(() => {
+    updateEntryTranslations(idx, entry);
+    scheduleHashUpdate();
+    checkAutoSummary();
+  });
+}
+
+function updateWhisperStatus(text) {
+  const el = $('#whisperStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = text ? '' : 'none';
+}
+
+async function startRecording() {
   if (!navigator.onLine) {
     showToast('Cannot start recording while offline', 'error');
     return;
   }
-  if (!recognition && !initSpeechRecognition()) return;
-  recognition.lang = state.sourceLang;
-  state.isRecording = true;
-  try {
-    recognition.start();
-  } catch(e) {
-    recognition.stop();
-    setTimeout(() => {
-      try { recognition.start(); } catch(e2) { /* ignore */ }
-    }, 100);
+
+  state.useWhisper = (state.sourceLang === 'auto');
+
+  if (state.useWhisper) {
+    const ok = await initWhisperRecording();
+    if (!ok) return;
+    state.isRecording = true;
+    startWhisperChunkCycle();
+  } else {
+    if (!recognition && !initSpeechRecognition()) return;
+    recognition.lang = state.sourceLang;
+    state.isRecording = true;
+    try {
+      recognition.start();
+    } catch(e) {
+      recognition.stop();
+      setTimeout(() => {
+        try { recognition.start(); } catch(e2) { /* ignore */ }
+      }, 100);
+    }
   }
+
   dom.btnRec.classList.add('recording');
-  dom.btnRec.innerHTML = '&#9679; REC';
-  dom.btnStop.disabled = false;
+  dom.btnRec.innerHTML = '&#9632; STOP';
   dom.emptyState.style.display = 'none';
 }
 
 function stopRecording() {
   state.isRecording = false;
-  if (recognition) recognition.stop();
+
+  if (state.useWhisper) {
+    stopWhisperChunkCycle();
+  } else {
+    if (recognition) recognition.stop();
+  }
+
   dom.btnRec.classList.remove('recording');
-  dom.btnStop.disabled = true;
+  dom.btnRec.innerHTML = '&#9679; REC';
   state.interimText = '';
+  clearTimeout(interimTranslateTimer);
+  interimTranslateAbort = true;
+  removeInterimEntry();
   removeInterim();
 }
 
@@ -1235,12 +1453,16 @@ let hashUpdateTimer = null;
 function serializeState() {
   const data = {
     v: 1,
-    sl: LANG_MAP[state.sourceLang].code,
+    sl: state.sourceLang === 'auto' ? 'auto' : LANG_MAP[state.sourceLang].code,
     tl: state.targetLangs,
     t: state.entries,
   };
   if (state.note) data.n = state.note;
   if (state.summary) data.sum = state.summary;
+  // Meeting date: use first entry's timestamp or current time
+  if (state.entries.length > 0) {
+    data.d = state.entries[0].ts;
+  }
   return data;
 }
 
@@ -1266,13 +1488,18 @@ function loadFromHash() {
     if (data.v !== 1) return false;
 
     // Restore source lang
-    const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
-    if (slEntry) state.sourceLang = slEntry[0];
+    if (data.sl === 'auto') {
+      state.sourceLang = 'auto';
+    } else {
+      const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
+      if (slEntry) state.sourceLang = slEntry[0];
+    }
 
     state.targetLangs = data.tl || ['ja', 'ko'];
     state.entries = data.t || [];
     state.note = data.n || '';
     state.summary = data.sum || '';
+    state.meetingDate = data.d || null;
 
     return true;
   } catch (e) {
@@ -1347,6 +1574,72 @@ function removeInterim() {
   if (el) el.remove();
 }
 
+function scheduleInterimTranslation(text) {
+  clearTimeout(interimTranslateTimer);
+  interimTranslateTimer = setTimeout(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    interimTranslateAbort = false;
+    interimEntry = {
+      ts: Math.floor(Date.now() / 1000),
+      s: LANG_MAP[state.sourceLang].code,
+      o: trimmed,
+      tr: {},
+    };
+    renderInterimEntry(interimEntry);
+    const capturedEntry = interimEntry;
+    translateEntry(capturedEntry).then(() => {
+      if (interimTranslateAbort || interimEntry !== capturedEntry) return;
+      updateInterimEntryTranslations(capturedEntry);
+    });
+  }, 1000);
+}
+
+function renderInterimEntry(entry) {
+  removeInterimEntry();
+  const div = document.createElement('div');
+  div.className = 'entry interim-entry';
+  div.id = 'interimEntry';
+
+  const langCode = entry.s;
+  div.innerHTML = `
+    <div class="entry-header">
+      <span class="entry-time">${formatTime(entry.ts)}</span>
+      <span class="lang-tag ${langCode}">${langCode.toUpperCase()}</span>
+    </div>
+    <div class="entry-original">${escapeHtml(entry.o)}</div>
+    <div class="entry-translations" id="translations-interim"><span style="color:var(--text-tertiary)">Translating...</span></div>
+  `;
+
+  // Insert before the interim text element
+  const interimText = $('#interimText');
+  if (interimText) {
+    dom.transcriptArea.insertBefore(div, interimText);
+  } else {
+    dom.transcriptArea.appendChild(div);
+  }
+  dom.transcriptArea.scrollTop = dom.transcriptArea.scrollHeight;
+}
+
+function updateInterimEntryTranslations(entry) {
+  const container = $('#translations-interim');
+  if (!container) return;
+  container.innerHTML = Object.entries(entry.tr)
+    .map(([lang, text]) =>
+      `<div class="translation-line">
+        <span class="lang-tag ${lang}">${lang.toUpperCase()}</span>
+        <span>${escapeHtml(text)}</span>
+      </div>`
+    ).join('');
+}
+
+function removeInterimEntry() {
+  const el = $('#interimEntry');
+  if (el) el.remove();
+  interimEntry = null;
+}
+
 function renderAllEntries() {
   dom.transcriptArea.innerHTML = '';
   if (state.entries.length === 0) {
@@ -1386,7 +1679,7 @@ function renderSummary() {
   if (state.summary) {
     textEl.innerHTML = markdownToHtml(state.summary);
   } else {
-    textEl.innerHTML = '<span style="color:var(--text-tertiary)">Summary will appear after recording begins.</span>';
+    textEl.innerHTML = '<span style="color:var(--text-tertiary)">Start recording to generate an AI summary of your meeting.</span>';
   }
 }
 
@@ -1428,8 +1721,14 @@ function setReadOnlyMode(readOnly) {
   dom.noteTextarea.readOnly = readOnly;
   if (readOnly) {
     dom.noteTextarea.placeholder = '';
+    // Show meeting date if available
+    const dateEl = $('#meetingDate');
+    if (dateEl && state.meetingDate) {
+      const d = new Date(state.meetingDate * 1000);
+      dateEl.textContent = '(' + d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) + ')';
+    }
   } else {
-    dom.noteTextarea.placeholder = 'Type your notes here...';
+    dom.noteTextarea.placeholder = 'Meeting notes, action items, or anything you want to remember...';
   }
 }
 
@@ -1496,6 +1795,23 @@ function initSettingsUI() {
 
   updateProviderFields(settings.provider);
   applyTheme(settings.theme);
+  updateWhisperAvailability();
+}
+
+function updateWhisperAvailability() {
+  const settings = getSettings();
+  const autoOption = $('#optAutoDetect');
+  if (!autoOption) return;
+  if (settings.openaiKey) {
+    autoOption.style.display = '';
+  } else {
+    autoOption.style.display = 'none';
+    if (state.sourceLang === 'auto') {
+      state.sourceLang = 'en-US';
+      dom.sourceLang.value = 'en-US';
+      updateTargetCheckboxes();
+    }
+  }
 }
 
 function updateProviderFields(provider) {
@@ -1515,6 +1831,7 @@ function saveCurrentSettings() {
   };
   saveSettings(settings);
   renderSummary();
+  updateWhisperAvailability();
 }
 
 // ============================================================
@@ -1637,12 +1954,15 @@ function downloadJson() {
 // 16. Event Listeners
 // ============================================================
 function initEventListeners() {
-  // Recording
+  // Recording toggle
   dom.btnRec.addEventListener('click', () => {
     if (state.isReadOnly) return;
-    startRecording();
+    if (state.isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
   });
-  dom.btnStop.addEventListener('click', stopRecording);
 
   // Share & Download
   dom.btnShare.addEventListener('click', shareUrl);
@@ -1652,10 +1972,9 @@ function initEventListeners() {
   dom.sourceLang.addEventListener('change', (e) => {
     state.sourceLang = e.target.value;
     if (state.isRecording) {
-      recognition.stop();
-      recognition.lang = state.sourceLang;
+      stopRecording();
+      startRecording();
     }
-    // Update target checkboxes: uncheck same as source
     updateTargetCheckboxes();
   });
 
@@ -1744,6 +2063,11 @@ function initEventListeners() {
 }
 
 function updateTargetCheckboxes() {
+  if (state.sourceLang === 'auto') {
+    $$('.target-langs input[type="checkbox"]').forEach(cb => { cb.disabled = false; });
+    state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
+    return;
+  }
   const sourceCode = LANG_MAP[state.sourceLang].code;
   $$('.target-langs input[type="checkbox"]').forEach(cb => {
     if (cb.value === sourceCode) {
@@ -1775,8 +2099,12 @@ function init() {
     renderSummary();
 
     // Sync UI with loaded state
-    const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === state.entries[0]?.s);
-    if (slEntry) dom.sourceLang.value = slEntry[0];
+    if (state.sourceLang === 'auto') {
+      dom.sourceLang.value = 'auto';
+    } else {
+      const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === state.entries[0]?.s);
+      if (slEntry) dom.sourceLang.value = slEntry[0];
+    }
   } else {
     // Try recovering from localStorage backup
     const backup = localStorage.getItem('rt_session_backup');
@@ -1785,8 +2113,12 @@ function init() {
         const data = JSON.parse(backup);
         if (data.v === 1 && data.t && data.t.length > 0) {
           if (confirm('A previous session was found. Would you like to restore it?')) {
-            const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
-            if (slEntry) state.sourceLang = slEntry[0];
+            if (data.sl === 'auto') {
+              state.sourceLang = 'auto';
+            } else {
+              const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
+              if (slEntry) state.sourceLang = slEntry[0];
+            }
             state.targetLangs = data.tl || ['ja', 'ko'];
             state.entries = data.t || [];
             state.note = data.n || '';
