@@ -1,5 +1,8 @@
 # Real-Time Meeting Translator
 
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen?logo=github)](https://wonjiko.github.io/realtime-translater-web/)
+[![View on GitHub](https://img.shields.io/badge/Source-GitHub-blue?logo=github)](https://github.com/wonjiko/realtime-translater-web)
+
 서버 없이 브라우저에서 동작하는 실시간 회의 번역 웹 앱.
 
 **[바로 사용하기](https://wonjiko.github.io/realtime-translater-web/)**
