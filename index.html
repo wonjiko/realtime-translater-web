@@ -2,9 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Real-Time Meeting Translator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script>
+if (typeof LZString === 'undefined') {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"><\/script>');
+}
+</script>
 <style>
 :root {
   --bg: #ffffff;
@@ -84,7 +89,7 @@ body {
 }
 .header-actions { display: flex; gap: 8px; }
 .icon-btn {
-  width: 36px; height: 36px;
+  width: 44px; height: 44px;
   border: none; border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text);
@@ -274,7 +279,7 @@ body {
 }
 .section-header-actions { display: flex; gap: 6px; }
 .section-toggle {
-  width: 28px; height: 28px;
+  width: 44px; height: 44px;
   border: none; border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
@@ -297,6 +302,7 @@ body {
   min-height: 60px;
 }
 .note-textarea:read-only { color: var(--text-secondary); }
+.note-textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Summary Section */
 .summary-section {
@@ -580,13 +586,18 @@ body {
 <div class="header">
   <h1>Real-Time Translator</h1>
   <div class="header-actions">
-    <button class="icon-btn" id="btnSettings" title="Settings">&#9881;</button>
+    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">&#9881;</button>
   </div>
 </div>
 
 <!-- Browser Warning -->
 <div class="browser-warning" id="browserWarning">
   This browser does not support Speech Recognition. Please use Chrome or Edge.
+</div>
+
+<!-- Offline Banner -->
+<div class="browser-warning" id="offlineBanner">
+  You are offline. Recording and translation require an internet connection.
 </div>
 
 <!-- Read-only Banner -->
@@ -612,7 +623,7 @@ body {
 </div>
 
 <!-- Transcript Area -->
-<div class="transcript-area" id="transcriptArea">
+<div class="transcript-area" id="transcriptArea" aria-live="polite" role="log">
   <div class="empty-state" id="emptyState">
     Press the record button to start real-time translation.<br>
     Select your voice language and target languages above.
@@ -626,7 +637,7 @@ body {
 <div class="note-section" id="noteSection" style="height: 120px;">
   <div class="section-header" id="noteHeader">
     <h3>&#128221; Notes</h3>
-    <button class="section-toggle" id="noteToggle">&#9660;</button>
+    <button class="section-toggle" id="noteToggle" aria-label="Toggle notes section">&#9660;</button>
   </div>
   <textarea class="note-textarea" id="noteTextarea" placeholder="Type your notes here..."></textarea>
 </div>
@@ -637,7 +648,7 @@ body {
     <h3>&#128203; Meeting Summary</h3>
     <div class="section-header-actions">
       <button class="refresh-btn" id="btnRefreshSummary">&#8635; Refresh</button>
-      <button class="section-toggle" id="summaryToggle">&#9660;</button>
+      <button class="section-toggle" id="summaryToggle" aria-label="Toggle summary section">&#9660;</button>
     </div>
   </div>
   <div class="summary-content" id="summaryContent">
@@ -650,10 +661,10 @@ body {
 
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
-  <button class="ctrl-btn btn-rec" id="btnRec">&#9679; REC</button>
-  <button class="ctrl-btn btn-stop" id="btnStop" disabled>&#9632; Stop</button>
-  <button class="ctrl-btn btn-share" id="btnShare">&#128279; Share</button>
-  <button class="ctrl-btn btn-download" id="btnDownload">&#8595; Download</button>
+  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; REC</button>
+  <button class="ctrl-btn btn-stop" id="btnStop" disabled aria-label="Stop recording">&#9632; Stop</button>
+  <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; Share</button>
+  <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; Download</button>
 </div>
 
 <!-- Settings Modal -->
@@ -836,10 +847,18 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 // ============================================================
 // 6. Toast Notifications
 // ============================================================
-function showToast(message, type = 'info', duration = 3000) {
+function showToast(message, type = 'info', duration) {
+  if (duration === undefined) duration = type === 'error' ? 6000 : 3000;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.textContent = message;
+  if (type === 'error') {
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = ' \u00d7';
+    closeBtn.style.cssText = 'cursor:pointer;margin-left:8px;font-weight:bold;font-size:16px;';
+    closeBtn.onclick = () => toast.remove();
+    toast.appendChild(closeBtn);
+  }
   dom.toastContainer.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -849,22 +868,48 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 // ============================================================
+// 7a. Fetch with Timeout
+// ============================================================
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// ============================================================
 // 7. Translation Engine (Adapter Pattern)
 // ============================================================
 const translators = {
   mymemory: {
     async translate(text, from, to) {
+      const truncated = text.length > 500;
       const params = new URLSearchParams({
         q: text.substring(0, 500),
         langpair: `${from}|${to}`,
       });
       const settings = getSettings();
       if (settings.mymemoryEmail) params.set('de', settings.mymemoryEmail);
-      const res = await fetch(`https://api.mymemory.translated.net/get?${params}`);
-      if (!res.ok) throw new Error(`MyMemory API error: ${res.status}`);
+      const res = await fetchWithTimeout(`https://api.mymemory.translated.net/get?${params}`);
+      if (!res.ok) {
+        if (res.status === 429) throw new Error('MyMemory daily limit exceeded. Consider switching to another provider in Settings.');
+        throw new Error(`MyMemory API error: ${res.status}`);
+      }
       const data = await res.json();
       if (data.responseStatus !== 200) throw new Error(data.responseDetails || 'Translation failed');
-      return data.responseData.translatedText;
+      let result = data.responseData.translatedText;
+      if (truncated) {
+        result += ' [truncated]';
+        showToast('Text exceeded 500-char limit and was truncated', 'info');
+      }
+      return result;
     },
     supportsLLMFeatures: false,
   },
@@ -873,7 +918,7 @@ const translators = {
     async translate(text, from, to) {
       const settings = getSettings();
       if (!settings.openaiKey) throw new Error('OpenAI API key not configured');
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -891,7 +936,7 @@ const translators = {
           temperature: 0.1,
           max_tokens: 1000,
         }),
-      });
+      }, 15000);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error?.message || `OpenAI API error: ${res.status}`);
@@ -907,7 +952,7 @@ const translators = {
       const text = transcript.map(e =>
         `[${LANG_NAMES[e.s]}] ${e.o}`
       ).join('\n');
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -931,7 +976,7 @@ Keep it concise. Use bullet points.`
           temperature: 0.2,
           max_tokens: 2000,
         }),
-      });
+      }, 30000);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error?.message || `OpenAI API error: ${res.status}`);
@@ -945,7 +990,7 @@ Keep it concise. Use bullet points.`
     async translate(text, from, to) {
       const settings = getSettings();
       if (!settings.anthropicKey) throw new Error('Anthropic API key not configured');
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -961,7 +1006,7 @@ Keep it concise. Use bullet points.`
             content: `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.\n\n${text}`
           }],
         }),
-      });
+      }, 15000);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error?.message || `Anthropic API error: ${res.status}`);
@@ -977,7 +1022,7 @@ Keep it concise. Use bullet points.`
       const text = transcript.map(e =>
         `[${LANG_NAMES[e.s]}] ${e.o}`
       ).join('\n');
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1001,7 +1046,7 @@ Transcript:
 ${text}`
           }],
         }),
-      });
+      }, 30000);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error?.message || `Anthropic API error: ${res.status}`);
@@ -1015,11 +1060,11 @@ ${text}`
     async translate(text, from, to) {
       const settings = getSettings();
       if (!settings.gasUrl) throw new Error('GAS Web App URL not configured');
-      const res = await fetch(settings.gasUrl, {
+      const res = await fetchWithTimeout(settings.gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ text, from, to }),
-      });
+      }, 15000);
       if (!res.ok) throw new Error(`GAS error: ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -1034,6 +1079,21 @@ function getTranslator() {
   return translators[settings.provider] || translators.mymemory;
 }
 
+async function translateWithRetry(translator, text, from, to, maxRetries = 2) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await translator.translate(text, from, to);
+    } catch (e) {
+      lastError = e;
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function translateEntry(entry) {
   const translator = getTranslator();
   const targets = state.targetLangs.filter(l => l !== entry.s);
@@ -1041,7 +1101,7 @@ async function translateEntry(entry) {
 
   const promises = targets.map(async (targetLang) => {
     try {
-      entry.tr[targetLang] = await translator.translate(entry.o, entry.s, targetLang);
+      entry.tr[targetLang] = await translateWithRetry(translator, entry.o, entry.s, targetLang);
     } catch (e) {
       console.error(`Translation error (${entry.s}->${targetLang}):`, e);
       entry.tr[targetLang] = `[Translation error]`;
@@ -1071,6 +1131,7 @@ function initSpeechRecognition() {
   recognition.maxAlternatives = 1;
 
   recognition.onresult = (event) => {
+    restartAttempts = 0;
     let interim = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const result = event.results[i];
@@ -1084,11 +1145,12 @@ function initSpeechRecognition() {
             tr: {},
           };
           state.entries.push(entry);
+          const idx = state.entries.length - 1;
           state.interimText = '';
-          renderEntry(entry, state.entries.length - 1);
+          renderEntry(entry, idx);
           scheduleHashUpdate();
           translateEntry(entry).then(() => {
-            updateEntryTranslations(state.entries.length - 1, entry);
+            updateEntryTranslations(idx, entry);
             scheduleHashUpdate();
             checkAutoSummary();
           });
@@ -1110,9 +1172,24 @@ function initSpeechRecognition() {
     showToast(`Mic error: ${event.error}`, 'error');
   };
 
+  let restartAttempts = 0;
   recognition.onend = () => {
     if (state.isRecording) {
-      try { recognition.start(); } catch(e) { /* ignore */ }
+      restartAttempts++;
+      if (restartAttempts > 5) {
+        showToast('Speech recognition stopped unexpectedly. Please restart recording.', 'error');
+        stopRecording();
+        restartAttempts = 0;
+        return;
+      }
+      setTimeout(() => {
+        try { recognition.start(); } catch(e) {
+          showToast('Failed to restart speech recognition', 'error');
+          stopRecording();
+        }
+      }, 200 * restartAttempts);
+    } else {
+      restartAttempts = 0;
     }
   };
 
@@ -1120,6 +1197,10 @@ function initSpeechRecognition() {
 }
 
 function startRecording() {
+  if (!navigator.onLine) {
+    showToast('Cannot start recording while offline', 'error');
+    return;
+  }
   if (!recognition && !initSpeechRecognition()) return;
   recognition.lang = state.sourceLang;
   state.isRecording = true;
@@ -1169,6 +1250,8 @@ function scheduleHashUpdate() {
     const json = JSON.stringify(serializeState());
     const compressed = LZString.compressToEncodedURIComponent(json);
     history.replaceState(null, '', '#' + compressed);
+    // Backup to localStorage
+    try { localStorage.setItem('rt_session_backup', json); } catch(e) { /* quota exceeded */ }
   }, HASH_UPDATE_DEBOUNCE);
 }
 
@@ -1314,16 +1397,26 @@ function escapeHtml(str) {
 }
 
 function markdownToHtml(md) {
-  return md
-    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    .replace(/\n/g, '<br>')
-    .replace(/<br>(<h3>)/g, '$1')
-    .replace(/<br>(<ul>)/g, '$1')
-    .replace(/(<\/ul>)<br>/g, '$1')
-    .replace(/(<\/h3>)<br>/g, '$1');
+  const safe = escapeHtml(md);
+  const lines = safe.split('\n');
+  let html = '';
+  let inList = false;
+  for (const line of lines) {
+    const headingMatch = line.match(/^#{2,3}\s+(.+)$/);
+    const listMatch = line.match(/^-\s+(.+)$/);
+    if (headingMatch) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h3>${headingMatch[1]}</h3>`;
+    } else if (listMatch) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${listMatch[1]}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (line.trim()) html += line + '<br>';
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
 }
 
 function setReadOnlyMode(readOnly) {
@@ -1331,6 +1424,7 @@ function setReadOnlyMode(readOnly) {
   dom.readonlyBanner.classList.toggle('visible', readOnly);
   dom.langBar.style.display = readOnly ? 'none' : '';
   dom.controlBar.style.display = readOnly ? 'none' : '';
+  dom.btnSettings.style.display = readOnly ? 'none' : '';
   dom.noteTextarea.readOnly = readOnly;
   if (readOnly) {
     dom.noteTextarea.placeholder = '';
@@ -1492,9 +1586,20 @@ function initSectionToggles() {
 // 15. Share & Download
 // ============================================================
 async function shareUrl() {
+  if (state.entries.length === 0) {
+    showToast('No transcript to share', 'error');
+    return;
+  }
   const json = JSON.stringify(serializeState());
   const compressed = LZString.compressToEncodedURIComponent(json);
-  const url = location.origin + location.pathname + '#' + compressed;
+  const base = location.origin === 'null'
+    ? location.href.split('#')[0]
+    : location.origin + location.pathname;
+  const url = base + '#' + compressed;
+
+  if (url.length > 8000) {
+    showToast('URL is very long and may be truncated on some platforms. Consider downloading JSON instead.', 'error');
+  }
 
   try {
     await navigator.clipboard.writeText(url);
@@ -1512,6 +1617,10 @@ async function shareUrl() {
 }
 
 function downloadJson() {
+  if (state.entries.length === 0) {
+    showToast('No transcript to download', 'error');
+    return;
+  }
   const data = serializeState();
   data.exportedAt = new Date().toISOString();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1604,7 +1713,7 @@ function initEventListeners() {
       return;
     }
     try {
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url, {}, 10000);
       const data = await res.json();
       if (data.status === 'ok') {
         showToast('GAS connection successful!', 'success');
@@ -1669,6 +1778,25 @@ function init() {
     const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === state.entries[0]?.s);
     if (slEntry) dom.sourceLang.value = slEntry[0];
   } else {
+    // Try recovering from localStorage backup
+    const backup = localStorage.getItem('rt_session_backup');
+    if (backup) {
+      try {
+        const data = JSON.parse(backup);
+        if (data.v === 1 && data.t && data.t.length > 0) {
+          if (confirm('A previous session was found. Would you like to restore it?')) {
+            const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
+            if (slEntry) state.sourceLang = slEntry[0];
+            state.targetLangs = data.tl || ['ja', 'ko'];
+            state.entries = data.t || [];
+            state.note = data.n || '';
+            state.summary = data.sum || '';
+            renderAllEntries();
+            renderNote();
+          }
+        }
+      } catch(e) { /* corrupt backup, ignore */ }
+    }
     setReadOnlyMode(false);
     renderSummary();
     updateTargetCheckboxes();
@@ -1678,6 +1806,30 @@ function init() {
   initEventListeners();
   initResizer();
   initSectionToggles();
+
+  // Warn before leaving if there's data
+  window.addEventListener('beforeunload', (e) => {
+    if (state.entries.length > 0 || state.isRecording) {
+      e.preventDefault();
+    }
+  });
+
+  // Mobile keyboard viewport handling
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      document.documentElement.style.setProperty('--vh', `${window.visualViewport.height}px`);
+    });
+    document.documentElement.style.setProperty('--vh', `${window.visualViewport.height}px`);
+  }
+
+  // Offline detection
+  const offlineBanner = $('#offlineBanner');
+  function updateOnlineStatus() {
+    offlineBanner.classList.toggle('visible', !navigator.onLine);
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
 }
 
 init();
