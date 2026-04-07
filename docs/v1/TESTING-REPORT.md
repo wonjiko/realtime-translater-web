@@ -1,3 +1,5 @@
+> 📌 이 문서는 [docs/RULES.md](../RULES.md)의 **TESTING-REPORT** 작성 규칙 예시입니다.
+
 # Testing Quality Report
 
 **Date**: 2026-04-07

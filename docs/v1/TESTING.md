@@ -1,3 +1,5 @@
+> 📌 이 문서는 [docs/RULES.md](../RULES.md)의 **TESTING** 작성 규칙 예시입니다.
+
 # Testing Guide
 
 ## 사전 준비

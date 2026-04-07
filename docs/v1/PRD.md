@@ -1,3 +1,5 @@
+> 📌 이 문서는 [docs/RULES.md](../RULES.md)의 **PRD** 작성 규칙 예시입니다.
+
 # Real-Time Meeting Translator - PRD
 
 ## 1. 개요

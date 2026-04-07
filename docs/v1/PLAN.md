@@ -1,3 +1,5 @@
+> 📌 이 문서는 [docs/RULES.md](../RULES.md)의 **PLAN** 작성 규칙 예시입니다.
+
 # Implementation Plan
 
 **Based on**: [TESTING-REPORT.md](./TESTING-REPORT.md) (Overall Score: 6.5/10)
