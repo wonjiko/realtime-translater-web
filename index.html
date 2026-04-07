@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Real-Time Meeting Translator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --bg-tertiary: #e8e8ed;
+  --text: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #aeaeb2;
+  --accent: #007aff;
+  --accent-hover: #0056b3;
+  --red: #ff3b30;
+  --red-hover: #d63027;
+  --green: #34c759;
+  --border: #d2d2d7;
+  --shadow: rgba(0,0,0,0.08);
+  --entry-bg: #ffffff;
+  --tag-en: #007aff;
+  --tag-ja: #ff6b6b;
+  --tag-ko: #34c759;
+  --toast-bg: #1d1d1f;
+  --toast-text: #ffffff;
+  --overlay: rgba(0,0,0,0.4);
+  --note-bg: #fffde7;
+  --summary-bg: #f0f4ff;
+}
+
+[data-theme="dark"] {
+  --bg: #1c1c1e;
+  --bg-secondary: #2c2c2e;
+  --bg-tertiary: #3a3a3c;
+  --text: #f5f5f7;
+  --text-secondary: #98989d;
+  --text-tertiary: #636366;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --red: #ff453a;
+  --red-hover: #ff6961;
+  --green: #30d158;
+  --border: #48484a;
+  --shadow: rgba(0,0,0,0.3);
+  --entry-bg: #2c2c2e;
+  --toast-bg: #f5f5f7;
+  --toast-text: #1c1c1e;
+  --overlay: rgba(0,0,0,0.6);
+  --note-bg: #3a3a2e;
+  --summary-bg: #2a2e3a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 16px;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+}
+.header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.header-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 36px; height: 36px;
+  border: none; border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  transition: background 0.15s;
+}
+.icon-btn:hover { background: var(--bg-tertiary); }
+
+/* Language Bar */
+.lang-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  background: var(--bg);
+}
+.lang-bar label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+.lang-bar select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.target-langs { display: flex; gap: 8px; align-items: center; }
+.target-langs label.check-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 14px; color: var(--text); cursor: pointer;
+}
+.target-langs input[type="checkbox"] {
+  width: 18px; height: 18px; cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Read-only Banner */
+.readonly-banner {
+  display: none;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+.readonly-banner.visible { display: flex; }
+.readonly-banner button {
+  padding: 4px 12px;
+  border: 1px solid white;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Transcript Area */
+.transcript-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.entry {
+  padding: 10px 12px;
+  background: var(--entry-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.entry-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.lang-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: white;
+}
+.lang-tag.en { background: var(--tag-en); }
+.lang-tag.ja { background: var(--tag-ja); }
+.lang-tag.ko { background: var(--tag-ko); }
+.entry-original {
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.entry-translations {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
+.translation-line {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.translation-line .lang-tag { flex-shrink: 0; margin-top: 2px; }
+.interim-text {
+  padding: 10px 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-size: 14px;
+}
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  text-align: center;
+  padding: 40px;
+  line-height: 1.6;
+}
+
+/* Resizer */
+.resizer {
+  height: 8px;
+  background: var(--bg-tertiary);
+  cursor: ns-resize;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.resizer::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Note Section */
+.note-section {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--note-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.2s;
+}
+.note-section.collapsed { height: auto !important; }
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.section-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-header-actions { display: flex; gap: 6px; }
+.section-toggle {
+  width: 28px; height: 28px;
+  border: none; border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.note-textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 0 16px 8px;
+  resize: none;
+  font-family: inherit;
+  outline: none;
+  min-height: 60px;
+}
+.note-textarea:read-only { color: var(--text-secondary); }
+
+/* Summary Section */
+.summary-section {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--summary-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.2s;
+}
+.summary-section.collapsed { height: auto !important; }
+.summary-content {
+  padding: 0 16px 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 60px;
+}
+.summary-content h2, .summary-content h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0 4px;
+  color: var(--text);
+}
+.summary-content ul { padding-left: 20px; margin: 0; }
+.summary-content li { margin-bottom: 2px; }
+.summary-disabled {
+  padding: 16px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+.refresh-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; gap: 4px;
+}
+.refresh-btn:hover { background: var(--bg-tertiary); }
+.refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+
+/* Control Bar */
+.control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+}
+.ctrl-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.ctrl-btn:active { transform: scale(0.96); }
+.btn-rec { background: var(--red); color: white; }
+.btn-rec:hover { background: var(--red-hover); }
+.btn-rec.recording {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.btn-stop { background: var(--bg-tertiary); color: var(--text); }
+.btn-stop:hover { background: var(--border); }
+.btn-share { background: var(--accent); color: white; }
+.btn-share:hover { background: var(--accent-hover); }
+.btn-download { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
+.btn-download:hover { background: var(--bg-tertiary); }
+
+/* Settings Modal */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  z-index: 100;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  background: var(--bg);
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80dvh;
+  overflow-y: auto;
+  padding: 20px;
+  animation: slideUp 0.25s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.modal h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-close {
+  width: 32px; height: 32px;
+  border: none; border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+}
+.setting-group {
+  margin-bottom: 20px;
+}
+.setting-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.setting-group select,
+.setting-group input[type="text"],
+.setting-group input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+}
+.setting-group input::placeholder { color: var(--text-tertiary); }
+.setting-group .hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.setting-group .provider-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.provider-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.provider-option:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.provider-option input[type="radio"] { accent-color: var(--accent); }
+.provider-option .provider-info { flex: 1; }
+.provider-option .provider-name { font-size: 14px; font-weight: 600; }
+.provider-option .provider-desc { font-size: 12px; color: var(--text-secondary); }
+.provider-fields { margin-top: 12px; }
+.provider-fields.hidden { display: none; }
+.theme-toggle {
+  display: flex; gap: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 3px;
+}
+.theme-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+.theme-btn.active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+.test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.test-btn:hover { background: var(--bg-tertiary); }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 16px;
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  border-radius: 10px;
+  font-size: 14px;
+  box-shadow: 0 4px 12px var(--shadow);
+  animation: toastIn 0.25s ease-out;
+  pointer-events: auto;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.error { background: var(--red); color: white; }
+.toast.success { background: var(--green); color: white; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Browser Warning */
+.browser-warning {
+  display: none;
+  padding: 12px 16px;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .browser-warning {
+  background: #534600;
+  color: #ffd600;
+}
+.browser-warning.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Header -->
+<div class="header">
+  <h1>Real-Time Translator</h1>
+  <div class="header-actions">
+    <button class="icon-btn" id="btnSettings" title="Settings">&#9881;</button>
+  </div>
+</div>
+
+<!-- Browser Warning -->
+<div class="browser-warning" id="browserWarning">
+  This browser does not support Speech Recognition. Please use Chrome or Edge.
+</div>
+
+<!-- Read-only Banner -->
+<div class="readonly-banner" id="readonlyBanner">
+  <span>Shared transcript — Read only</span>
+  <button id="btnNewSession">New Session</button>
+</div>
+
+<!-- Language Bar -->
+<div class="lang-bar" id="langBar">
+  <label>Voice</label>
+  <select id="sourceLang">
+    <option value="en-US">English</option>
+    <option value="ja-JP">Japanese</option>
+    <option value="ko-KR">Korean</option>
+  </select>
+  <label>Translate</label>
+  <div class="target-langs">
+    <label class="check-label"><input type="checkbox" id="targetEn" value="en" checked> EN</label>
+    <label class="check-label"><input type="checkbox" id="targetJa" value="ja" checked> JA</label>
+    <label class="check-label"><input type="checkbox" id="targetKo" value="ko" checked> KO</label>
+  </div>
+</div>
+
+<!-- Transcript Area -->
+<div class="transcript-area" id="transcriptArea">
+  <div class="empty-state" id="emptyState">
+    Press the record button to start real-time translation.<br>
+    Select your voice language and target languages above.
+  </div>
+</div>
+
+<!-- Resizer -->
+<div class="resizer" id="resizer"></div>
+
+<!-- Note Section -->
+<div class="note-section" id="noteSection" style="height: 120px;">
+  <div class="section-header" id="noteHeader">
+    <h3>&#128221; Notes</h3>
+    <button class="section-toggle" id="noteToggle">&#9660;</button>
+  </div>
+  <textarea class="note-textarea" id="noteTextarea" placeholder="Type your notes here..."></textarea>
+</div>
+
+<!-- Summary Section -->
+<div class="summary-section" id="summarySection" style="height: 150px;">
+  <div class="section-header" id="summaryHeader">
+    <h3>&#128203; Meeting Summary</h3>
+    <div class="section-header-actions">
+      <button class="refresh-btn" id="btnRefreshSummary">&#8635; Refresh</button>
+      <button class="section-toggle" id="summaryToggle">&#9660;</button>
+    </div>
+  </div>
+  <div class="summary-content" id="summaryContent">
+    <div class="summary-disabled" id="summaryDisabled">
+      Meeting summary requires LLM provider (OpenAI or Anthropic).<br>
+      Configure in Settings.
+    </div>
+  </div>
+</div>
+
+<!-- Control Bar -->
+<div class="control-bar" id="controlBar">
+  <button class="ctrl-btn btn-rec" id="btnRec">&#9679; REC</button>
+  <button class="ctrl-btn btn-stop" id="btnStop" disabled>&#9632; Stop</button>
+  <button class="ctrl-btn btn-share" id="btnShare">&#128279; Share</button>
+  <button class="ctrl-btn btn-download" id="btnDownload">&#8595; Download</button>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Settings <button class="modal-close" id="btnCloseSettings">&times;</button></h2>
+
+    <div class="setting-group">
+      <label>Translation Provider</label>
+      <div class="provider-options">
+        <label class="provider-option">
+          <input type="radio" name="provider" value="mymemory" checked>
+          <div class="provider-info">
+            <div class="provider-name">MyMemory (Free)</div>
+            <div class="provider-desc">No setup needed. 5,000 chars/day free.</div>
+          </div>
+        </label>
+        <label class="provider-option">
+          <input type="radio" name="provider" value="openai">
+          <div class="provider-info">
+            <div class="provider-name">OpenAI GPT (Recommended)</div>
+            <div class="provider-desc">Best quality. ~$0.05/hour meeting.</div>
+          </div>
+        </label>
+        <label class="provider-option">
+          <input type="radio" name="provider" value="anthropic">
+          <div class="provider-info">
+            <div class="provider-name">Anthropic Claude</div>
+            <div class="provider-desc">Excellent quality. API key required.</div>
+          </div>
+        </label>
+        <label class="provider-option">
+          <input type="radio" name="provider" value="gas">
+          <div class="provider-info">
+            <div class="provider-name">Google Apps Script</div>
+            <div class="provider-desc">Google Translate quality. Free, requires setup.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group provider-fields" id="fieldsOpenai">
+      <label>OpenAI API Key</label>
+      <input type="password" id="inputOpenaiKey" placeholder="sk-...">
+      <div class="hint">Stored locally. Never shared via URL.</div>
+    </div>
+
+    <div class="setting-group provider-fields hidden" id="fieldsAnthropic">
+      <label>Anthropic API Key</label>
+      <input type="password" id="inputAnthropicKey" placeholder="sk-ant-...">
+      <div class="hint">Stored locally. Never shared via URL.</div>
+    </div>
+
+    <div class="setting-group provider-fields hidden" id="fieldsGas">
+      <label>Google Apps Script Web App URL</label>
+      <input type="text" id="inputGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="hint">Deploy the GAS proxy script and paste the URL here.</div>
+      <button class="test-btn" id="btnTestGas">&#9889; Test Connection</button>
+    </div>
+
+    <div class="setting-group">
+      <label>Theme</label>
+      <div class="theme-toggle">
+        <button class="theme-btn" data-theme-val="light">Light</button>
+        <button class="theme-btn" data-theme-val="dark">Dark</button>
+        <button class="theme-btn active" data-theme-val="system">System</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 1. Constants & Language Mappings
+// ============================================================
+const LANG_MAP = {
+  'en-US': { code: 'en', label: 'EN', name: 'English' },
+  'ja-JP': { code: 'ja', label: 'JA', name: 'Japanese' },
+  'ko-KR': { code: 'ko', label: 'KO', name: 'Korean' },
+};
+const LANG_NAMES = { en: 'English', ja: 'Japanese', ko: 'Korean' };
+const HASH_UPDATE_DEBOUNCE = 2000;
+const SUMMARY_ENTRY_THRESHOLD = 10;
+
+// ============================================================
+// 2. State
+// ============================================================
+const state = {
+  isRecording: false,
+  isReadOnly: false,
+  sourceLang: 'en-US',
+  targetLangs: ['ja', 'ko'],
+  entries: [],
+  interimText: '',
+  note: '',
+  summary: '',
+  summaryEntryCount: 0,
+};
+
+// ============================================================
+// 3. DOM References
+// ============================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const dom = {
+  transcriptArea: $('#transcriptArea'),
+  emptyState: $('#emptyState'),
+  noteTextarea: $('#noteTextarea'),
+  summaryContent: $('#summaryContent'),
+  summaryDisabled: $('#summaryDisabled'),
+  btnRec: $('#btnRec'),
+  btnStop: $('#btnStop'),
+  btnShare: $('#btnShare'),
+  btnDownload: $('#btnDownload'),
+  btnSettings: $('#btnSettings'),
+  btnCloseSettings: $('#btnCloseSettings'),
+  btnNewSession: $('#btnNewSession'),
+  btnRefreshSummary: $('#btnRefreshSummary'),
+  btnTestGas: $('#btnTestGas'),
+  settingsModal: $('#settingsModal'),
+  readonlyBanner: $('#readonlyBanner'),
+  browserWarning: $('#browserWarning'),
+  sourceLang: $('#sourceLang'),
+  noteSection: $('#noteSection'),
+  summarySection: $('#summarySection'),
+  noteToggle: $('#noteToggle'),
+  summaryToggle: $('#summaryToggle'),
+  noteHeader: $('#noteHeader'),
+  summaryHeader: $('#summaryHeader'),
+  resizer: $('#resizer'),
+  langBar: $('#langBar'),
+  controlBar: $('#controlBar'),
+  toastContainer: $('#toastContainer'),
+};
+
+// ============================================================
+// 4. Settings (localStorage)
+// ============================================================
+function loadSettings() {
+  return {
+    provider: localStorage.getItem('rt_provider') || 'mymemory',
+    openaiKey: localStorage.getItem('rt_openai_key') || '',
+    anthropicKey: localStorage.getItem('rt_anthropic_key') || '',
+    gasUrl: localStorage.getItem('rt_gas_url') || '',
+    theme: localStorage.getItem('rt_theme') || 'system',
+  };
+}
+
+function saveSettings(settings) {
+  localStorage.setItem('rt_provider', settings.provider);
+  localStorage.setItem('rt_openai_key', settings.openaiKey);
+  localStorage.setItem('rt_anthropic_key', settings.anthropicKey);
+  localStorage.setItem('rt_gas_url', settings.gasUrl);
+  localStorage.setItem('rt_theme', settings.theme);
+}
+
+function getSettings() { return loadSettings(); }
+
+// ============================================================
+// 5. Theme
+// ============================================================
+function applyTheme(theme) {
+  if (theme === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  $$('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeVal === theme);
+  });
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const settings = getSettings();
+  if (settings.theme === 'system') applyTheme('system');
+});
+
+// ============================================================
+// 6. Toast Notifications
+// ============================================================
+function showToast(message, type = 'info', duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  dom.toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ============================================================
+// 7. Translation Engine (Adapter Pattern)
+// ============================================================
+const translators = {
+  mymemory: {
+    async translate(text, from, to) {
+      const params = new URLSearchParams({
+        q: text.substring(0, 500),
+        langpair: `${from}|${to}`,
+      });
+      const settings = getSettings();
+      if (settings.mymemoryEmail) params.set('de', settings.mymemoryEmail);
+      const res = await fetch(`https://api.mymemory.translated.net/get?${params}`);
+      if (!res.ok) throw new Error(`MyMemory API error: ${res.status}`);
+      const data = await res.json();
+      if (data.responseStatus !== 200) throw new Error(data.responseDetails || 'Translation failed');
+      return data.responseData.translatedText;
+    },
+    supportsLLMFeatures: false,
+  },
+
+  openai: {
+    async translate(text, from, to) {
+      const settings = getSettings();
+      if (!settings.openaiKey) throw new Error('OpenAI API key not configured');
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: `You are a professional translator. Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.`
+          }, {
+            role: 'user',
+            content: text
+          }],
+          temperature: 0.1,
+          max_tokens: 1000,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenAI API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices[0].message.content.trim();
+    },
+    supportsLLMFeatures: true,
+
+    async summarize(transcript) {
+      const settings = getSettings();
+      if (!settings.openaiKey) throw new Error('OpenAI API key not configured');
+      const text = transcript.map(e =>
+        `[${LANG_NAMES[e.s]}] ${e.o}`
+      ).join('\n');
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: `You are a meeting assistant. Summarize the following meeting transcript.
+Format your response in the user's primary language with these sections:
+## Key Topics
+## Decisions
+## Action Items
+
+Keep it concise. Use bullet points.`
+          }, {
+            role: 'user',
+            content: text
+          }],
+          temperature: 0.2,
+          max_tokens: 2000,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenAI API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices[0].message.content.trim();
+    },
+  },
+
+  anthropic: {
+    async translate(text, from, to) {
+      const settings = getSettings();
+      if (!settings.anthropicKey) throw new Error('Anthropic API key not configured');
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.anthropicKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.\n\n${text}`
+          }],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Anthropic API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.content[0].text.trim();
+    },
+    supportsLLMFeatures: true,
+
+    async summarize(transcript) {
+      const settings = getSettings();
+      if (!settings.anthropicKey) throw new Error('Anthropic API key not configured');
+      const text = transcript.map(e =>
+        `[${LANG_NAMES[e.s]}] ${e.o}`
+      ).join('\n');
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.anthropicKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          messages: [{
+            role: 'user',
+            content: `Summarize the following meeting transcript. Format your response in the user's primary language with these sections:
+## Key Topics
+## Decisions
+## Action Items
+
+Keep it concise. Use bullet points.
+
+Transcript:
+${text}`
+          }],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Anthropic API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.content[0].text.trim();
+    },
+  },
+
+  gas: {
+    async translate(text, from, to) {
+      const settings = getSettings();
+      if (!settings.gasUrl) throw new Error('GAS Web App URL not configured');
+      const res = await fetch(settings.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ text, from, to }),
+      });
+      if (!res.ok) throw new Error(`GAS error: ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data.translation;
+    },
+    supportsLLMFeatures: false,
+  },
+};
+
+function getTranslator() {
+  const settings = getSettings();
+  return translators[settings.provider] || translators.mymemory;
+}
+
+async function translateEntry(entry) {
+  const translator = getTranslator();
+  const targets = state.targetLangs.filter(l => l !== entry.s);
+  if (targets.length === 0) return;
+
+  const promises = targets.map(async (targetLang) => {
+    try {
+      entry.tr[targetLang] = await translator.translate(entry.o, entry.s, targetLang);
+    } catch (e) {
+      console.error(`Translation error (${entry.s}->${targetLang}):`, e);
+      entry.tr[targetLang] = `[Translation error]`;
+      showToast(`Translation failed: ${e.message}`, 'error');
+    }
+  });
+  await Promise.all(promises);
+}
+
+// ============================================================
+// 8. Speech Recognition
+// ============================================================
+let recognition = null;
+
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    dom.browserWarning.classList.add('visible');
+    dom.btnRec.disabled = true;
+    return false;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = state.sourceLang;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      if (result.isFinal) {
+        const text = result[0].transcript.trim();
+        if (text) {
+          const entry = {
+            ts: Math.floor(Date.now() / 1000),
+            s: LANG_MAP[state.sourceLang].code,
+            o: text,
+            tr: {},
+          };
+          state.entries.push(entry);
+          state.interimText = '';
+          renderEntry(entry, state.entries.length - 1);
+          scheduleHashUpdate();
+          translateEntry(entry).then(() => {
+            updateEntryTranslations(state.entries.length - 1, entry);
+            scheduleHashUpdate();
+            checkAutoSummary();
+          });
+        }
+      } else {
+        interim += result[0].transcript;
+      }
+    }
+    if (interim) {
+      state.interimText = interim;
+      renderInterim(interim);
+    }
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === 'no-speech') return;
+    if (event.error === 'aborted') return;
+    console.error('Speech recognition error:', event.error);
+    showToast(`Mic error: ${event.error}`, 'error');
+  };
+
+  recognition.onend = () => {
+    if (state.isRecording) {
+      try { recognition.start(); } catch(e) { /* ignore */ }
+    }
+  };
+
+  return true;
+}
+
+function startRecording() {
+  if (!recognition && !initSpeechRecognition()) return;
+  recognition.lang = state.sourceLang;
+  state.isRecording = true;
+  try {
+    recognition.start();
+  } catch(e) {
+    recognition.stop();
+    setTimeout(() => {
+      try { recognition.start(); } catch(e2) { /* ignore */ }
+    }, 100);
+  }
+  dom.btnRec.classList.add('recording');
+  dom.btnRec.innerHTML = '&#9679; REC';
+  dom.btnStop.disabled = false;
+  dom.emptyState.style.display = 'none';
+}
+
+function stopRecording() {
+  state.isRecording = false;
+  if (recognition) recognition.stop();
+  dom.btnRec.classList.remove('recording');
+  dom.btnStop.disabled = true;
+  state.interimText = '';
+  removeInterim();
+}
+
+// ============================================================
+// 9. URL Hash Serialization
+// ============================================================
+let hashUpdateTimer = null;
+
+function serializeState() {
+  const data = {
+    v: 1,
+    sl: LANG_MAP[state.sourceLang].code,
+    tl: state.targetLangs,
+    t: state.entries,
+  };
+  if (state.note) data.n = state.note;
+  if (state.summary) data.sum = state.summary;
+  return data;
+}
+
+function scheduleHashUpdate() {
+  clearTimeout(hashUpdateTimer);
+  hashUpdateTimer = setTimeout(() => {
+    const json = JSON.stringify(serializeState());
+    const compressed = LZString.compressToEncodedURIComponent(json);
+    history.replaceState(null, '', '#' + compressed);
+  }, HASH_UPDATE_DEBOUNCE);
+}
+
+function loadFromHash() {
+  const hash = location.hash.slice(1);
+  if (!hash) return false;
+
+  try {
+    const json = LZString.decompressFromEncodedURIComponent(hash);
+    if (!json) return false;
+    const data = JSON.parse(json);
+    if (data.v !== 1) return false;
+
+    // Restore source lang
+    const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
+    if (slEntry) state.sourceLang = slEntry[0];
+
+    state.targetLangs = data.tl || ['ja', 'ko'];
+    state.entries = data.t || [];
+    state.note = data.n || '';
+    state.summary = data.sum || '';
+
+    return true;
+  } catch (e) {
+    console.error('Failed to load hash data:', e);
+    showToast('Failed to load shared data', 'error');
+    return false;
+  }
+}
+
+// ============================================================
+// 10. UI Rendering
+// ============================================================
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderEntry(entry, index) {
+  dom.emptyState.style.display = 'none';
+  removeInterim();
+
+  const div = document.createElement('div');
+  div.className = 'entry';
+  div.id = `entry-${index}`;
+
+  const translationsHtml = Object.entries(entry.tr)
+    .map(([lang, text]) =>
+      `<div class="translation-line">
+        <span class="lang-tag ${lang}">${lang.toUpperCase()}</span>
+        <span>${escapeHtml(text)}</span>
+      </div>`
+    ).join('');
+
+  div.innerHTML = `
+    <div class="entry-header">
+      <span class="entry-time">${formatTime(entry.ts)}</span>
+      <span class="lang-tag ${entry.s}">${entry.s.toUpperCase()}</span>
+    </div>
+    <div class="entry-original">${escapeHtml(entry.o)}</div>
+    <div class="entry-translations" id="translations-${index}">${translationsHtml || '<span style="color:var(--text-tertiary)">Translating...</span>'}</div>
+  `;
+
+  dom.transcriptArea.appendChild(div);
+  dom.transcriptArea.scrollTop = dom.transcriptArea.scrollHeight;
+}
+
+function updateEntryTranslations(index, entry) {
+  const container = $(`#translations-${index}`);
+  if (!container) return;
+
+  container.innerHTML = Object.entries(entry.tr)
+    .map(([lang, text]) =>
+      `<div class="translation-line">
+        <span class="lang-tag ${lang}">${lang.toUpperCase()}</span>
+        <span>${escapeHtml(text)}</span>
+      </div>`
+    ).join('');
+}
+
+function renderInterim(text) {
+  removeInterim();
+  const div = document.createElement('div');
+  div.className = 'interim-text';
+  div.id = 'interimText';
+  div.textContent = text;
+  dom.transcriptArea.appendChild(div);
+  dom.transcriptArea.scrollTop = dom.transcriptArea.scrollHeight;
+}
+
+function removeInterim() {
+  const el = $('#interimText');
+  if (el) el.remove();
+}
+
+function renderAllEntries() {
+  dom.transcriptArea.innerHTML = '';
+  if (state.entries.length === 0) {
+    dom.transcriptArea.appendChild(dom.emptyState);
+    dom.emptyState.style.display = '';
+    return;
+  }
+  dom.emptyState.style.display = 'none';
+  state.entries.forEach((entry, i) => renderEntry(entry, i));
+}
+
+function renderNote() {
+  dom.noteTextarea.value = state.note;
+}
+
+function renderSummary() {
+  const settings = getSettings();
+  const translator = getTranslator();
+
+  if (!translator.supportsLLMFeatures) {
+    dom.summaryDisabled.style.display = '';
+    dom.summaryContent.querySelector('.summary-text')?.remove();
+    dom.btnRefreshSummary.style.display = 'none';
+    return;
+  }
+
+  dom.summaryDisabled.style.display = 'none';
+  dom.btnRefreshSummary.style.display = '';
+
+  let textEl = dom.summaryContent.querySelector('.summary-text');
+  if (!textEl) {
+    textEl = document.createElement('div');
+    textEl.className = 'summary-text';
+    dom.summaryContent.appendChild(textEl);
+  }
+
+  if (state.summary) {
+    textEl.innerHTML = markdownToHtml(state.summary);
+  } else {
+    textEl.innerHTML = '<span style="color:var(--text-tertiary)">Summary will appear after recording begins.</span>';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function markdownToHtml(md) {
+  return md
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/\n/g, '<br>')
+    .replace(/<br>(<h3>)/g, '$1')
+    .replace(/<br>(<ul>)/g, '$1')
+    .replace(/(<\/ul>)<br>/g, '$1')
+    .replace(/(<\/h3>)<br>/g, '$1');
+}
+
+function setReadOnlyMode(readOnly) {
+  state.isReadOnly = readOnly;
+  dom.readonlyBanner.classList.toggle('visible', readOnly);
+  dom.langBar.style.display = readOnly ? 'none' : '';
+  dom.controlBar.style.display = readOnly ? 'none' : '';
+  dom.noteTextarea.readOnly = readOnly;
+  if (readOnly) {
+    dom.noteTextarea.placeholder = '';
+  } else {
+    dom.noteTextarea.placeholder = 'Type your notes here...';
+  }
+}
+
+// ============================================================
+// 11. Summary (LLM)
+// ============================================================
+let summaryLoading = false;
+
+async function refreshSummary() {
+  const translator = getTranslator();
+  if (!translator.supportsLLMFeatures || !translator.summarize) {
+    showToast('Summary requires LLM provider', 'error');
+    return;
+  }
+  if (state.entries.length === 0) {
+    showToast('No transcript to summarize', 'error');
+    return;
+  }
+  if (summaryLoading) return;
+
+  summaryLoading = true;
+  dom.btnRefreshSummary.classList.add('loading');
+  dom.btnRefreshSummary.textContent = '⏳ Loading...';
+
+  try {
+    state.summary = await translator.summarize(state.entries);
+    state.summaryEntryCount = state.entries.length;
+    renderSummary();
+    scheduleHashUpdate();
+    showToast('Summary updated', 'success');
+  } catch (e) {
+    console.error('Summary error:', e);
+    showToast(`Summary failed: ${e.message}`, 'error');
+  } finally {
+    summaryLoading = false;
+    dom.btnRefreshSummary.classList.remove('loading');
+    dom.btnRefreshSummary.innerHTML = '&#8635; Refresh';
+  }
+}
+
+function checkAutoSummary() {
+  const translator = getTranslator();
+  if (!translator.supportsLLMFeatures) return;
+  const newEntries = state.entries.length - state.summaryEntryCount;
+  if (newEntries >= SUMMARY_ENTRY_THRESHOLD) {
+    refreshSummary();
+  }
+}
+
+// ============================================================
+// 12. Settings UI
+// ============================================================
+function initSettingsUI() {
+  const settings = loadSettings();
+
+  // Provider radio buttons
+  const providerRadio = document.querySelector(`input[name="provider"][value="${settings.provider}"]`);
+  if (providerRadio) providerRadio.checked = true;
+
+  // API keys
+  $('#inputOpenaiKey').value = settings.openaiKey;
+  $('#inputAnthropicKey').value = settings.anthropicKey;
+  $('#inputGasUrl').value = settings.gasUrl;
+
+  updateProviderFields(settings.provider);
+  applyTheme(settings.theme);
+}
+
+function updateProviderFields(provider) {
+  $('#fieldsOpenai').classList.toggle('hidden', provider !== 'openai');
+  $('#fieldsAnthropic').classList.toggle('hidden', provider !== 'anthropic');
+  $('#fieldsGas').classList.toggle('hidden', provider !== 'gas');
+}
+
+function saveCurrentSettings() {
+  const provider = document.querySelector('input[name="provider"]:checked').value;
+  const settings = {
+    provider,
+    openaiKey: $('#inputOpenaiKey').value.trim(),
+    anthropicKey: $('#inputAnthropicKey').value.trim(),
+    gasUrl: $('#inputGasUrl').value.trim(),
+    theme: getSettings().theme,
+  };
+  saveSettings(settings);
+  renderSummary();
+}
+
+// ============================================================
+// 13. Resizer
+// ============================================================
+function initResizer() {
+  let startY, startHeight;
+  const resizer = dom.resizer;
+  const noteSection = dom.noteSection;
+
+  function onMouseDown(e) {
+    e.preventDefault();
+    startY = e.clientY || e.touches?.[0]?.clientY;
+    startHeight = noteSection.offsetHeight;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('touchmove', onMouseMove, { passive: false });
+    document.addEventListener('touchend', onMouseUp);
+  }
+
+  function onMouseMove(e) {
+    e.preventDefault();
+    const clientY = e.clientY || e.touches?.[0]?.clientY;
+    const delta = startY - clientY;
+    const newHeight = Math.max(60, Math.min(400, startHeight + delta));
+    noteSection.style.height = newHeight + 'px';
+  }
+
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.removeEventListener('touchmove', onMouseMove);
+    document.removeEventListener('touchend', onMouseUp);
+  }
+
+  resizer.addEventListener('mousedown', onMouseDown);
+  resizer.addEventListener('touchstart', onMouseDown, { passive: false });
+}
+
+// ============================================================
+// 14. Section Toggle (collapse/expand)
+// ============================================================
+function initSectionToggles() {
+  function toggleSection(section, toggleBtn) {
+    const isCollapsed = section.classList.toggle('collapsed');
+    toggleBtn.innerHTML = isCollapsed ? '&#9650;' : '&#9660;';
+    if (isCollapsed) {
+      section.dataset.prevHeight = section.style.height;
+      // Keep header visible
+    } else {
+      section.style.height = section.dataset.prevHeight || '120px';
+    }
+  }
+
+  dom.noteHeader.addEventListener('click', (e) => {
+    if (e.target.closest('.section-header-actions')) return;
+    toggleSection(dom.noteSection, dom.noteToggle);
+  });
+  dom.noteToggle.addEventListener('click', () => toggleSection(dom.noteSection, dom.noteToggle));
+
+  dom.summaryHeader.addEventListener('click', (e) => {
+    if (e.target.closest('.section-header-actions')) return;
+    toggleSection(dom.summarySection, dom.summaryToggle);
+  });
+  dom.summaryToggle.addEventListener('click', () => toggleSection(dom.summarySection, dom.summaryToggle));
+}
+
+// ============================================================
+// 15. Share & Download
+// ============================================================
+async function shareUrl() {
+  const json = JSON.stringify(serializeState());
+  const compressed = LZString.compressToEncodedURIComponent(json);
+  const url = location.origin + location.pathname + '#' + compressed;
+
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('URL copied to clipboard!', 'success');
+  } catch (e) {
+    // Fallback
+    const textarea = document.createElement('textarea');
+    textarea.value = url;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
+    showToast('URL copied to clipboard!', 'success');
+  }
+}
+
+function downloadJson() {
+  const data = serializeState();
+  data.exportedAt = new Date().toISOString();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `meeting-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded!', 'success');
+}
+
+// ============================================================
+// 16. Event Listeners
+// ============================================================
+function initEventListeners() {
+  // Recording
+  dom.btnRec.addEventListener('click', () => {
+    if (state.isReadOnly) return;
+    startRecording();
+  });
+  dom.btnStop.addEventListener('click', stopRecording);
+
+  // Share & Download
+  dom.btnShare.addEventListener('click', shareUrl);
+  dom.btnDownload.addEventListener('click', downloadJson);
+
+  // Source language change
+  dom.sourceLang.addEventListener('change', (e) => {
+    state.sourceLang = e.target.value;
+    if (state.isRecording) {
+      recognition.stop();
+      recognition.lang = state.sourceLang;
+    }
+    // Update target checkboxes: uncheck same as source
+    updateTargetCheckboxes();
+  });
+
+  // Target language checkboxes
+  $$('.target-langs input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
+    });
+  });
+
+  // Note textarea
+  dom.noteTextarea.addEventListener('input', () => {
+    state.note = dom.noteTextarea.value;
+    scheduleHashUpdate();
+  });
+
+  // Settings modal
+  dom.btnSettings.addEventListener('click', () => {
+    dom.settingsModal.classList.add('visible');
+  });
+  dom.btnCloseSettings.addEventListener('click', () => {
+    dom.settingsModal.classList.remove('visible');
+    saveCurrentSettings();
+  });
+  dom.settingsModal.addEventListener('click', (e) => {
+    if (e.target === dom.settingsModal) {
+      dom.settingsModal.classList.remove('visible');
+      saveCurrentSettings();
+    }
+  });
+
+  // Provider change
+  $$('input[name="provider"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      updateProviderFields(e.target.value);
+    });
+  });
+
+  // Theme buttons
+  $$('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.themeVal;
+      const settings = getSettings();
+      settings.theme = theme;
+      saveSettings(settings);
+      applyTheme(theme);
+    });
+  });
+
+  // Test GAS connection
+  dom.btnTestGas.addEventListener('click', async () => {
+    const url = $('#inputGasUrl').value.trim();
+    if (!url) {
+      showToast('Please enter a GAS URL first', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status === 'ok') {
+        showToast('GAS connection successful!', 'success');
+      } else {
+        showToast('GAS responded but status is not ok', 'error');
+      }
+    } catch (e) {
+      showToast(`GAS connection failed: ${e.message}`, 'error');
+    }
+  });
+
+  // New session
+  dom.btnNewSession.addEventListener('click', () => {
+    history.replaceState(null, '', location.pathname);
+    state.entries = [];
+    state.note = '';
+    state.summary = '';
+    state.summaryEntryCount = 0;
+    state.isReadOnly = false;
+    setReadOnlyMode(false);
+    renderAllEntries();
+    renderNote();
+    renderSummary();
+  });
+
+  // Summary refresh
+  dom.btnRefreshSummary.addEventListener('click', refreshSummary);
+}
+
+function updateTargetCheckboxes() {
+  const sourceCode = LANG_MAP[state.sourceLang].code;
+  $$('.target-langs input[type="checkbox"]').forEach(cb => {
+    if (cb.value === sourceCode) {
+      cb.checked = false;
+      cb.disabled = true;
+    } else {
+      cb.disabled = false;
+    }
+  });
+  state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
+}
+
+// ============================================================
+// 17. Initialization
+// ============================================================
+function init() {
+  // Check for speech recognition support
+  initSpeechRecognition();
+
+  // Load settings
+  initSettingsUI();
+
+  // Check for hash data (shared link)
+  const hasData = loadFromHash();
+  if (hasData) {
+    setReadOnlyMode(true);
+    renderAllEntries();
+    renderNote();
+    renderSummary();
+
+    // Sync UI with loaded state
+    const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === state.entries[0]?.s);
+    if (slEntry) dom.sourceLang.value = slEntry[0];
+  } else {
+    setReadOnlyMode(false);
+    renderSummary();
+    updateTargetCheckboxes();
+  }
+
+  // Init UI components
+  initEventListeners();
+  initResizer();
+  initSectionToggles();
+}
+
+init();
+</script>
+</body>
+</html>
