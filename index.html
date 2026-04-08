@@ -406,6 +406,8 @@ body {
 .btn-share:hover { background: var(--accent-hover); }
 .btn-download { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-download:hover { background: var(--bg-tertiary); }
+.btn-open { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
+.btn-open:hover { background: var(--bg-tertiary); }
 
 /* Settings Modal */
 .modal-overlay {
@@ -695,6 +697,8 @@ body {
   <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span></button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
   <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; <span data-i18n="download">다운로드</span></button>
+  <button class="ctrl-btn btn-open" id="btnOpen" aria-label="Open JSON file">&#128194; <span data-i18n="open">열기</span></button>
+  <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
 </div>
 
 <!-- Settings Modal -->
@@ -861,6 +865,9 @@ const I18N = {
     hashLoadFailed: '공유 데이터를 불러오는데 실패했습니다',
     autoDetectRequiresKey: '자동 감지에는 OpenAI API Key가 필요합니다. 설정에서 입력해주세요.',
     summaryFailed: '요약 실패',
+    open: '열기',
+    invalidJsonFile: '유효하지 않은 회의록 파일입니다',
+    fileLoaded: '파일을 불러왔습니다',
   },
   en: {
     pageTitle: 'Real-Time Meeting Translator',
@@ -935,6 +942,9 @@ const I18N = {
     hashLoadFailed: 'Failed to load shared data',
     autoDetectRequiresKey: 'Auto-detect requires an OpenAI API Key. Please set it up in Settings.',
     summaryFailed: 'Summary failed',
+    open: 'Open',
+    invalidJsonFile: 'Invalid transcript file',
+    fileLoaded: 'File loaded',
   }
 };
 
@@ -1008,6 +1018,8 @@ const dom = {
   btnNewSession: $('#btnNewSession'),
   btnRefreshSummary: $('#btnRefreshSummary'),
   btnTestGas: $('#btnTestGas'),
+  btnOpen: $('#btnOpen'),
+  fileInput: $('#fileInput'),
   settingsModal: $('#settingsModal'),
   readonlyBanner: $('#readonlyBanner'),
   browserWarning: $('#browserWarning'),
@@ -1341,6 +1353,8 @@ let recognition = null;
 let interimTranslateTimer = null;
 let interimEntry = null;
 let interimTranslateAbort = false;
+let recognitionRestarting = false;
+let restartAttempts = 0;
 
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1348,6 +1362,12 @@ function initSpeechRecognition() {
     dom.browserWarning.classList.add('visible');
     dom.btnRec.disabled = true;
     return false;
+  }
+
+  // Destroy previous instance to prevent duplicate sessions on mobile
+  if (recognition) {
+    try { recognition.abort(); } catch(e) { /* ignore */ }
+    recognition = null;
   }
 
   recognition = new SpeechRecognition();
@@ -1404,8 +1424,8 @@ function initSpeechRecognition() {
     showToast(`${t('micError')}: ${event.error}`, 'error');
   };
 
-  let restartAttempts = 0;
   recognition.onend = () => {
+    recognitionRestarting = false;
     if (state.isRecording) {
       restartAttempts++;
       if (restartAttempts > 5) {
@@ -1414,12 +1434,20 @@ function initSpeechRecognition() {
         restartAttempts = 0;
         return;
       }
+      recognitionRestarting = true;
       setTimeout(() => {
-        try { recognition.start(); } catch(e) {
+        if (!state.isRecording) {
+          recognitionRestarting = false;
+          return;
+        }
+        try {
+          recognition.start();
+        } catch(e) {
+          recognitionRestarting = false;
           showToast(t('restartFailed'), 'error');
           stopRecording();
         }
-      }, 200 * restartAttempts);
+      }, 300 * restartAttempts);
     } else {
       restartAttempts = 0;
     }
@@ -1606,16 +1634,24 @@ async function startRecording() {
     state.isRecording = true;
     startWhisperChunkCycle();
   } else {
-    if (!recognition && !initSpeechRecognition()) return;
+    // Always create a fresh recognition instance to avoid stale sessions on mobile
+    if (!initSpeechRecognition()) return;
     recognition.lang = state.sourceLang;
+    restartAttempts = 0;
+    recognitionRestarting = false;
     state.isRecording = true;
     try {
       recognition.start();
     } catch(e) {
-      recognition.stop();
+      // Already started — abort and retry once
+      try { recognition.abort(); } catch(e2) { /* ignore */ }
       setTimeout(() => {
-        try { recognition.start(); } catch(e2) { /* ignore */ }
-      }, 100);
+        if (!state.isRecording) return;
+        try { recognition.start(); } catch(e3) {
+          showToast(t('restartFailed'), 'error');
+          stopRecording();
+        }
+      }, 200);
     }
   }
 
@@ -1626,11 +1662,14 @@ async function startRecording() {
 
 function stopRecording() {
   state.isRecording = false;
+  recognitionRestarting = false;
 
   if (state.useWhisper) {
     stopWhisperChunkCycle();
   } else {
-    if (recognition) recognition.stop();
+    if (recognition) {
+      try { recognition.abort(); } catch(e) { /* ignore */ }
+    }
   }
 
   dom.btnRec.classList.remove('recording');
@@ -1913,8 +1952,10 @@ function setReadOnlyMode(readOnly) {
   state.isReadOnly = readOnly;
   dom.readonlyBanner.classList.toggle('visible', readOnly);
   dom.langBar.style.display = readOnly ? 'none' : '';
-  dom.controlBar.style.display = readOnly ? 'none' : '';
   dom.btnSettings.style.display = readOnly ? 'none' : '';
+  // In read-only mode, hide rec/share but keep download/open visible
+  dom.btnRec.style.display = readOnly ? 'none' : '';
+  dom.btnShare.style.display = readOnly ? 'none' : '';
   dom.noteTextarea.readOnly = readOnly;
   if (readOnly) {
     dom.noteTextarea.placeholder = '';
@@ -2149,6 +2190,52 @@ function downloadJson() {
   showToast(t('downloaded'), 'success');
 }
 
+function openJsonFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.v !== 1 || !Array.isArray(data.t)) {
+        showToast(t('invalidJsonFile'), 'error');
+        return;
+      }
+
+      // Stop recording if active
+      if (state.isRecording) stopRecording();
+
+      // Restore source lang
+      if (data.sl === 'auto') {
+        state.sourceLang = 'auto';
+      } else {
+        const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
+        if (slEntry) state.sourceLang = slEntry[0];
+      }
+
+      state.targetLangs = data.tl || ['en', 'ja'];
+      state.entries = data.t || [];
+      state.note = data.n || '';
+      state.summary = data.sum || '';
+      state.meetingDate = data.d || null;
+
+      setReadOnlyMode(true);
+      renderAllEntries();
+      renderNote();
+      renderSummary();
+
+      // Sync UI
+      dom.sourceLang.value = state.sourceLang === 'auto' ? 'auto' : state.sourceLang;
+      $$('.target-langs input[type="checkbox"]').forEach(cb => {
+        cb.checked = state.targetLangs.includes(cb.value);
+      });
+
+      showToast(t('fileLoaded'), 'success');
+    } catch (err) {
+      showToast(t('invalidJsonFile'), 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ============================================================
 // 16. Event Listeners
 // ============================================================
@@ -2163,9 +2250,17 @@ function initEventListeners() {
     }
   });
 
-  // Share & Download
+  // Share & Download & Open
   dom.btnShare.addEventListener('click', shareUrl);
   dom.btnDownload.addEventListener('click', downloadJson);
+  dom.btnOpen.addEventListener('click', () => {
+    dom.fileInput.value = '';
+    dom.fileInput.click();
+  });
+  dom.fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) openJsonFile(file);
+  });
 
   // Locale toggle
   $('#btnLocale').addEventListener('click', () => {
@@ -2310,8 +2405,12 @@ function init() {
     cb.checked = state.targetLangs.includes(cb.value);
   });
 
-  // Check for speech recognition support
-  initSpeechRecognition();
+  // Check for speech recognition support (don't create instance yet — defer to first REC press)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    dom.browserWarning.classList.add('visible');
+    dom.btnRec.disabled = true;
+  }
 
   // Load settings
   initSettingsUI();
