@@ -795,6 +795,55 @@ body {
         <button class="theme-btn active" data-theme-val="system" data-i18n="system">시스템</button>
       </div>
     </div>
+
+    <div class="setting-group" id="fieldsTranslationMode" style="display:none">
+      <label data-i18n="translationMode">번역 모드</label>
+      <div class="theme-toggle">
+        <button class="theme-btn active" data-mode-val="standard" data-i18n="standardMode">표준</button>
+        <button class="theme-btn" data-mode-val="enhanced" data-i18n="enhancedMode">고품질 (Audio)</button>
+      </div>
+      <div id="enhancedModelGroup" style="display:none;margin-top:8px">
+        <label data-i18n="enhancedModel" style="font-size:13px">번역 모델</label>
+        <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
+          <option value="gpt-4.5-preview">gpt-4.5-preview (최고 품질)</option>
+          <option value="gpt-4.1">gpt-4.1 (고품질)</option>
+          <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
+          <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
+          <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
+        </select>
+        <input type="text" id="enhancedModelCustomInput" placeholder="모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
+      </div>
+      <div class="hint" data-i18n="enhancedModeHint" style="margin-top:6px">고품질 모드는 음성을 선택한 모델로 직접 전송합니다. 비용이 높지만 번역 품질이 향상됩니다.</div>
+    </div>
+
+    <div class="setting-group" id="fieldsChunkSettings">
+      <label data-i18n="chunkSettings">음성 분할</label>
+      <div class="theme-toggle" style="margin-bottom:8px">
+        <button class="theme-btn active" data-chunk-mode="time" data-i18n="timeBased">시간 기반</button>
+        <button class="theme-btn" data-chunk-mode="silence" data-i18n="silenceBased">무음 감지</button>
+      </div>
+      <div id="chunkTimeOptions">
+        <label data-i18n="chunkDuration" style="font-size:13px">분할 간격</label>
+        <div class="theme-toggle" style="margin-top:4px">
+          <button class="theme-btn" data-chunk-dur="2000">2s</button>
+          <button class="theme-btn active" data-chunk-dur="4000">4s</button>
+          <button class="theme-btn" data-chunk-dur="6000">6s</button>
+          <button class="theme-btn" data-chunk-dur="8000">8s</button>
+        </div>
+      </div>
+      <div id="chunkSilenceOptions" style="display:none">
+        <label data-i18n="silenceThreshold" style="font-size:13px">무음 감도</label>
+        <input type="range" id="silenceThresholdSlider" min="10" max="80" value="30" style="width:100%;margin:6px 0;accent-color:var(--accent)">
+        <div class="hint" data-i18n="silenceHint">낮을수록 민감 (조용한 환경), 높을수록 둔감 (시끄러운 환경)</div>
+        <label data-i18n="maxChunkDuration" style="font-size:13px;margin-top:8px;display:block">최대 분할 시간</label>
+        <div class="theme-toggle" style="margin-top:4px">
+          <button class="theme-btn" data-max-dur="6000">6s</button>
+          <button class="theme-btn active" data-max-dur="10000">10s</button>
+          <button class="theme-btn" data-max-dur="15000">15s</button>
+        </div>
+      </div>
+      <div class="hint" data-i18n="chunkHint" style="margin-top:6px">Whisper 모드(자동 감지/시스템 오디오)에만 적용됩니다.</div>
+    </div>
   </div>
 </div>
 
@@ -893,6 +942,21 @@ const I18N = {
     hashLoadFailed: '공유 데이터를 불러오는데 실패했습니다',
     autoDetectRequiresKey: '자동 감지에는 OpenAI API Key가 필요합니다. 설정에서 입력해주세요.',
     summaryFailed: '요약 실패',
+    translationMode: '번역 모드',
+    standardMode: '표준',
+    enhancedMode: '고품질 (Audio)',
+    enhancedModeHint: '고품질 모드는 음성을 선택한 모델로 직접 전송합니다. 비용이 높지만 번역 품질이 향상됩니다.',
+    enhancedModel: '번역 모델',
+    enhancedModelCustom: '직접 입력',
+    enhancedFallback: '고품질 모드 실패, 표준 모드로 전환합니다',
+    chunkSettings: '음성 분할',
+    timeBased: '시간 기반',
+    silenceBased: '무음 감지',
+    chunkDuration: '분할 간격',
+    silenceThreshold: '무음 감도',
+    silenceHint: '낮을수록 민감 (조용한 환경), 높을수록 둔감 (시끄러운 환경)',
+    maxChunkDuration: '최대 분할 시간',
+    chunkHint: 'Whisper 모드(자동 감지/시스템 오디오)에만 적용됩니다.',
     open: '열기',
     invalidJsonFile: '유효하지 않은 회의록 파일입니다',
     fileLoaded: '파일을 불러왔습니다',
@@ -977,6 +1041,21 @@ const I18N = {
     hashLoadFailed: 'Failed to load shared data',
     autoDetectRequiresKey: 'Auto-detect requires an OpenAI API Key. Please set it up in Settings.',
     summaryFailed: 'Summary failed',
+    translationMode: 'Translation Mode',
+    standardMode: 'Standard',
+    enhancedMode: 'Enhanced (Audio)',
+    enhancedModeHint: 'Enhanced mode sends audio directly to the selected model. Higher cost but better translation quality.',
+    enhancedModel: 'Translation Model',
+    enhancedModelCustom: 'Custom',
+    enhancedFallback: 'Enhanced mode failed, falling back to standard mode',
+    chunkSettings: 'Audio Splitting',
+    timeBased: 'Time-based',
+    silenceBased: 'Silence Detection',
+    chunkDuration: 'Split Interval',
+    silenceThreshold: 'Silence Sensitivity',
+    silenceHint: 'Lower = more sensitive (quiet environment), Higher = less sensitive (noisy environment)',
+    maxChunkDuration: 'Max Split Duration',
+    chunkHint: 'Only applies to Whisper mode (auto-detect / system audio).',
     open: 'Open',
     invalidJsonFile: 'Invalid transcript file',
     fileLoaded: 'File loaded',
@@ -1090,6 +1169,12 @@ function loadSettings() {
     anthropicKey: localStorage.getItem('rt_anthropic_key') || '',
     gasUrl: localStorage.getItem('rt_gas_url') || '',
     theme: localStorage.getItem('rt_theme') || 'system',
+    translationMode: localStorage.getItem('rt_translation_mode') || 'standard',
+    enhancedModel: localStorage.getItem('rt_enhanced_model') || 'gpt-4o-audio-preview',
+    chunkMode: localStorage.getItem('rt_chunk_mode') || 'time',
+    chunkDuration: parseInt(localStorage.getItem('rt_chunk_duration') || '4000'),
+    silenceThreshold: parseInt(localStorage.getItem('rt_silence_threshold') || '30'),
+    maxChunkDuration: parseInt(localStorage.getItem('rt_max_chunk_duration') || '10000'),
   };
 }
 
@@ -1099,6 +1184,12 @@ function saveSettings(settings) {
   localStorage.setItem('rt_anthropic_key', settings.anthropicKey);
   localStorage.setItem('rt_gas_url', settings.gasUrl);
   localStorage.setItem('rt_theme', settings.theme);
+  localStorage.setItem('rt_translation_mode', settings.translationMode);
+  localStorage.setItem('rt_enhanced_model', settings.enhancedModel);
+  localStorage.setItem('rt_chunk_mode', settings.chunkMode);
+  localStorage.setItem('rt_chunk_duration', settings.chunkDuration);
+  localStorage.setItem('rt_silence_threshold', settings.silenceThreshold);
+  localStorage.setItem('rt_max_chunk_duration', settings.maxChunkDuration);
 }
 
 function getSettings() { return loadSettings(); }
@@ -1113,7 +1204,7 @@ function applyTheme(theme) {
   } else {
     document.documentElement.setAttribute('data-theme', theme);
   }
-  $$('.theme-btn').forEach(btn => {
+  $$('[data-theme-val]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.themeVal === theme);
   });
 }
@@ -1709,20 +1800,22 @@ async function initWhisperRecording() {
   }
 }
 
+let silenceCheckInterval = null;
+
 function startWhisperChunkCycle() {
   if (!whisperMediaRecorder) return;
-
-  function recordNextChunk() {
-    whisperAudioChunks = [];
-    try { whisperMediaRecorder.start(); } catch(e) { return; }
-    updateWhisperStatus(t('listening'));
+  const settings = getSettings();
+  if (settings.chunkMode === 'silence') {
+    startWhisperSilenceChunkCycle(settings);
+  } else {
+    startWhisperTimeChunkCycle(settings);
   }
+}
 
+function setupWhisperOnStop(recordNextChunk) {
   whisperMediaRecorder.onstop = () => {
     if (whisperAudioChunks.length > 0) {
-      const audioBlob = new Blob(whisperAudioChunks, {
-        type: whisperMimeType,
-      });
+      const audioBlob = new Blob(whisperAudioChunks, { type: whisperMimeType });
       whisperAudioChunks = [];
       processWhisperChunk(audioBlob);
     }
@@ -1730,18 +1823,70 @@ function startWhisperChunkCycle() {
       recordNextChunk();
     }
   };
+}
 
+function startWhisperTimeChunkCycle(settings) {
+  function recordNextChunk() {
+    whisperAudioChunks = [];
+    try { whisperMediaRecorder.start(); } catch(e) { return; }
+    updateWhisperStatus(t('listening'));
+  }
+  setupWhisperOnStop(recordNextChunk);
   recordNextChunk();
   whisperChunkTimer = setInterval(() => {
     if (whisperMediaRecorder && whisperMediaRecorder.state === 'recording') {
       whisperMediaRecorder.stop();
     }
-  }, WHISPER_CHUNK_DURATION_MS);
+  }, settings.chunkDuration || WHISPER_CHUNK_DURATION_MS);
+}
+
+function startWhisperSilenceChunkCycle(settings) {
+  const threshold = settings.silenceThreshold || 30;
+  const maxMs = settings.maxChunkDuration || 10000;
+  const minChunkMs = 1500;
+  const silenceMinMs = 800;
+  let silenceDuration = 0;
+  let chunkStartTime = 0;
+
+  function recordNextChunk() {
+    whisperAudioChunks = [];
+    chunkStartTime = Date.now();
+    silenceDuration = 0;
+    try { whisperMediaRecorder.start(); } catch(e) { return; }
+    updateWhisperStatus(t('listening'));
+  }
+  setupWhisperOnStop(recordNextChunk);
+  recordNextChunk();
+
+  // Reuse meter analyser if available, otherwise create one
+  const analyser = meterAnalysers.mic || meterAnalysers.sys;
+  if (!analyser) return; // No analyser available, fall back won't split by silence
+
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  silenceCheckInterval = setInterval(() => {
+    if (!whisperMediaRecorder || whisperMediaRecorder.state !== 'recording') return;
+
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((sum, val) => sum + val, 0) / data.length;
+    const elapsed = Date.now() - chunkStartTime;
+
+    if (avg < threshold) {
+      silenceDuration += 100;
+    } else {
+      silenceDuration = 0;
+    }
+
+    if ((silenceDuration >= silenceMinMs && elapsed >= minChunkMs) || elapsed >= maxMs) {
+      whisperMediaRecorder.stop();
+    }
+  }, 100);
 }
 
 function stopWhisperChunkCycle() {
   clearInterval(whisperChunkTimer);
   whisperChunkTimer = null;
+  clearInterval(silenceCheckInterval);
+  silenceCheckInterval = null;
   if (whisperMediaRecorder && whisperMediaRecorder.state === 'recording') {
     try { whisperMediaRecorder.stop(); } catch(e) { /* ignore */ }
   }
@@ -1768,10 +1913,23 @@ function stopWhisperChunkCycle() {
 async function processWhisperChunk(audioBlob) {
   if (audioBlob.size < 1000) return;
 
-  updateWhisperStatus(t('processing'));
-
   const settings = getSettings();
   if (!settings.openaiKey) return;
+
+  if (settings.translationMode === 'enhanced' && settings.provider === 'openai') {
+    try {
+      await processWhisperChunkEnhanced(audioBlob, settings);
+      return;
+    } catch (e) {
+      console.warn('Enhanced mode failed, falling back:', e);
+      showToast(t('enhancedFallback'), 'info');
+    }
+  }
+  await processWhisperChunkStandard(audioBlob, settings);
+}
+
+async function processWhisperChunkStandard(audioBlob, settings) {
+  updateWhisperStatus(t('processing'));
 
   const ext = getFileExtension(audioBlob.type || 'audio/webm');
   const formData = new FormData();
@@ -1795,11 +1953,99 @@ async function processWhisperChunk(audioBlob) {
     handleWhisperResult(data);
   } catch (e) {
     console.error('Whisper API error:', e);
-    showToast(`Whisper: ${e.message}`, 'error');  // Whisper is a product name, keep as-is
+    showToast(`Whisper: ${e.message}`, 'error');
   } finally {
     if (state.isRecording && state.useWhisper) {
       updateWhisperStatus(t('listening'));
     }
+  }
+}
+
+function getAudioFormat(mimeType) {
+  if (mimeType.includes('webm')) return 'webm';
+  if (mimeType.includes('mp4')) return 'mp4';
+  if (mimeType.includes('ogg')) return 'ogg';
+  if (mimeType.includes('wav')) return 'wav';
+  if (mimeType.includes('mp3') || mimeType.includes('mpeg')) return 'mp3';
+  return 'webm';
+}
+
+async function processWhisperChunkEnhanced(audioBlob, settings) {
+  updateWhisperStatus(t('processing'));
+
+  const targets = state.targetLangs.map(l => LANG_NAMES[l] || l).join(', ');
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
+  const format = getAudioFormat(audioBlob.type || 'audio/webm');
+
+  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.enhancedModel || 'gpt-4o-audio-preview',
+      messages: [{
+        role: 'system',
+        content: `You are a professional meeting transcriber and translator. Listen to the audio and respond with ONLY valid JSON (no markdown): {"text": "<original transcription>", "lang": "<detected language code: en, ja, or ko>", "translations": {"<target_lang_code>": "<translation>"}}\nTarget languages: ${targets}. Translate to all requested target languages.`
+      }, {
+        role: 'user',
+        content: [{
+          type: 'input_audio',
+          input_audio: { data: base64, format }
+        }]
+      }],
+      temperature: 0.1,
+      max_tokens: 1500,
+    }),
+  }, 30000);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Enhanced API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  let content = data.choices[0].message.content.trim();
+  // Strip markdown code fences if present
+  if (content.startsWith('```')) {
+    content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+  const result = JSON.parse(content);
+
+  if (!result.text?.trim()) return;
+
+  const detectedLang = WHISPER_LANG_TO_APP[result.lang?.toLowerCase()] || result.lang;
+  const entry = {
+    ts: Math.floor(Date.now() / 1000),
+    s: detectedLang || '??',
+    o: result.text.trim(),
+    tr: {},
+  };
+
+  // Map translations to lang codes
+  if (result.translations) {
+    for (const [key, val] of Object.entries(result.translations)) {
+      const code = WHISPER_LANG_TO_APP[key.toLowerCase()] || key.toLowerCase();
+      entry.tr[code] = val;
+    }
+  }
+
+  state.entries.push(entry);
+  const idx = state.entries.length - 1;
+  state.interimText = '';
+  removeInterim();
+  renderEntry(entry, idx);
+  updateEntryTranslations(idx, entry);
+  scheduleHashUpdate();
+  checkAutoSummary();
+
+  if (state.isRecording && state.useWhisper) {
+    updateWhisperStatus(t('listening'));
   }
 }
 
@@ -2333,6 +2579,37 @@ function initSettingsUI() {
   updateProviderFields(settings.provider);
   applyTheme(settings.theme);
   updateWhisperAvailability();
+
+  // Translation mode
+  $$('[data-mode-val]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.modeVal === settings.translationMode);
+  });
+  $('#enhancedModelGroup').style.display = settings.translationMode === 'enhanced' ? '' : 'none';
+  const modelSelect = $('#enhancedModelSelect');
+  const customInput = $('#enhancedModelCustomInput');
+  const presetValues = [...modelSelect.options].map(o => o.value).filter(v => v !== 'custom');
+  if (presetValues.includes(settings.enhancedModel)) {
+    modelSelect.value = settings.enhancedModel;
+    customInput.style.display = 'none';
+  } else {
+    modelSelect.value = 'custom';
+    customInput.value = settings.enhancedModel;
+    customInput.style.display = '';
+  }
+
+  // Chunk settings
+  $$('[data-chunk-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.chunkMode === settings.chunkMode);
+  });
+  $('#chunkTimeOptions').style.display = settings.chunkMode === 'time' ? '' : 'none';
+  $('#chunkSilenceOptions').style.display = settings.chunkMode === 'silence' ? '' : 'none';
+  $$('[data-chunk-dur]').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.chunkDur) === settings.chunkDuration);
+  });
+  $('#silenceThresholdSlider').value = settings.silenceThreshold;
+  $$('[data-max-dur]').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.maxDur) === settings.maxChunkDuration);
+  });
 }
 
 function updateWhisperAvailability() {
@@ -2368,16 +2645,30 @@ function updateProviderFields(provider) {
   $('#fieldsOpenai').classList.toggle('hidden', provider !== 'openai');
   $('#fieldsAnthropic').classList.toggle('hidden', provider !== 'anthropic');
   $('#fieldsGas').classList.toggle('hidden', provider !== 'gas');
+  $('#fieldsTranslationMode').style.display = provider === 'openai' ? '' : 'none';
 }
 
 function saveCurrentSettings() {
   const provider = document.querySelector('input[name="provider"]:checked').value;
+  const activeMode = document.querySelector('[data-mode-val].active');
+  const activeChunkMode = document.querySelector('[data-chunk-mode].active');
+  const activeChunkDur = document.querySelector('[data-chunk-dur].active');
+  const activeMaxDur = document.querySelector('[data-max-dur].active');
+  const modelSelect = $('#enhancedModelSelect');
+  const customInput = $('#enhancedModelCustomInput');
+  const enhancedModel = modelSelect.value === 'custom' ? customInput.value.trim() : modelSelect.value;
   const settings = {
     provider,
     openaiKey: $('#inputOpenaiKey').value.trim(),
     anthropicKey: $('#inputAnthropicKey').value.trim(),
     gasUrl: $('#inputGasUrl').value.trim(),
     theme: getSettings().theme,
+    translationMode: activeMode?.dataset.modeVal || 'standard',
+    enhancedModel: enhancedModel || 'gpt-4o-audio-preview',
+    chunkMode: activeChunkMode?.dataset.chunkMode || 'time',
+    chunkDuration: parseInt(activeChunkDur?.dataset.chunkDur || '4000'),
+    silenceThreshold: parseInt($('#silenceThresholdSlider').value || '30'),
+    maxChunkDuration: parseInt(activeMaxDur?.dataset.maxDur || '10000'),
   };
   saveSettings(settings);
   renderSummary();
@@ -2657,7 +2948,7 @@ function initEventListeners() {
   });
 
   // Theme buttons
-  $$('.theme-btn').forEach(btn => {
+  $$('[data-theme-val]').forEach(btn => {
     btn.addEventListener('click', () => {
       const theme = btn.dataset.themeVal;
       const settings = getSettings();
@@ -2666,6 +2957,57 @@ function initEventListeners() {
       applyTheme(theme);
     });
   });
+
+  // Translation mode toggle
+  $$('[data-mode-val]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('[data-mode-val]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isEnhanced = btn.dataset.modeVal === 'enhanced';
+      $('#enhancedModelGroup').style.display = isEnhanced ? '' : 'none';
+      saveCurrentSettings();
+    });
+  });
+
+  // Enhanced model select
+  $('#enhancedModelSelect').addEventListener('change', (e) => {
+    $('#enhancedModelCustomInput').style.display = e.target.value === 'custom' ? '' : 'none';
+    saveCurrentSettings();
+  });
+  $('#enhancedModelCustomInput').addEventListener('change', () => saveCurrentSettings());
+
+  // Chunk mode toggle
+  $$('[data-chunk-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('[data-chunk-mode]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isSilence = btn.dataset.chunkMode === 'silence';
+      $('#chunkTimeOptions').style.display = isSilence ? 'none' : '';
+      $('#chunkSilenceOptions').style.display = isSilence ? '' : 'none';
+      saveCurrentSettings();
+    });
+  });
+
+  // Chunk duration buttons
+  $$('[data-chunk-dur]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('[data-chunk-dur]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveCurrentSettings();
+    });
+  });
+
+  // Max chunk duration buttons
+  $$('[data-max-dur]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('[data-max-dur]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveCurrentSettings();
+    });
+  });
+
+  // Silence threshold slider
+  $('#silenceThresholdSlider').addEventListener('input', () => saveCurrentSettings());
 
   // Test GAS connection
   dom.btnTestGas.addEventListener('click', async () => {
