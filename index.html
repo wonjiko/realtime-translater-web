@@ -1550,13 +1550,13 @@ function startAudioMeters(micStreamRef, sysStreamRef) {
   function draw() {
     if (meterAnalysers.mic) drawBars(meterAnalysers.mic, $('#micMeter'), 16);
     if (meterAnalysers.sys) drawBars(meterAnalysers.sys, $('#sysMeter'), 16);
-    // Also drive the in-button meter from mic
+    // In-button meter: show sys if available (system audio mode), else mic
     const btnMeter = $('#audioMeter');
-    if (btnMeter && meterAnalysers.mic) {
-      const a = meterAnalysers.mic;
+    const btnSource = meterAnalysers.sys || meterAnalysers.mic;
+    if (btnMeter && btnSource) {
       const bars = btnMeter.querySelectorAll('span');
-      const data = new Uint8Array(a.frequencyBinCount);
-      a.getByteFrequencyData(data);
+      const data = new Uint8Array(btnSource.frequencyBinCount);
+      btnSource.getByteFrequencyData(data);
       const step = Math.max(1, Math.floor(data.length / bars.length));
       for (let i = 0; i < bars.length; i++) {
         const val = data[i * step] / 255;
@@ -1897,8 +1897,16 @@ async function startRecording() {
     const ok = await initWhisperRecording();
     if (!ok) return;
     state.isRecording = true;
-    micStreamRef = micStream || whisperStream;
     sysStreamRef = displayStream || null;
+    // Get a separate mic stream for the meter to avoid AudioContext conflicts
+    if (micStream) {
+      try {
+        micStreamRef = await navigator.mediaDevices.getUserMedia(getMicConstraints());
+        meterOnlyStream = micStreamRef;
+      } catch(e) { micStreamRef = null; }
+    } else {
+      micStreamRef = whisperStream;
+    }
     startWhisperChunkCycle();
   } else {
     // Always create a fresh recognition instance to avoid stale sessions on mobile
