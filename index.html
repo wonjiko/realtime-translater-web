@@ -408,7 +408,24 @@ body {
 .btn-download:hover { background: var(--bg-tertiary); }
 .btn-open { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-open:hover { background: var(--bg-tertiary); }
-.btn-sysaudio { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); font-size: 12px; padding: 6px 12px; min-height: 36px; border-radius: 18px; white-space: nowrap; }
+.mic-info { display: none; align-items: center; gap: 4px; position: relative; }
+.mic-info.active { display: flex; }
+.mic-label { font-size: 11px; color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.mic-label:hover { background: var(--bg-tertiary); }
+.mic-meter { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
+.mic-meter span { display: block; width: 2px; border-radius: 1px; background: var(--accent); min-height: 2px; transition: height 0.08s ease-out; }
+.sys-meter { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
+.sys-meter span { display: block; width: 2px; border-radius: 1px; background: #34c759; min-height: 2px; transition: height 0.08s ease-out; }
+.device-dropdown { display: none; position: absolute; bottom: 100%; left: 0; margin-bottom: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px; max-width: 300px; z-index: 100; overflow: hidden; }
+.device-dropdown.open { display: block; }
+.device-dropdown button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 12px; border: none; background: none; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-dropdown button:hover { background: var(--bg-secondary); }
+.device-dropdown button.selected { color: var(--accent); font-weight: 600; }
+.audio-meter { display: none; align-items: flex-end; gap: 2px; height: 20px; margin-left: 4px; }
+.audio-meter.active { display: inline-flex; }
+.audio-meter span { display: block; width: 3px; border-radius: 1.5px; background: rgba(255,255,255,0.85); min-height: 3px; transition: height 0.08s ease-out; }
+.btn-sysaudio { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); font-size: 12px; padding: 2px 12px; border-radius: 22px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.btn-sysaudio .btn-desc { font-size: 0.65em; opacity: 0.6; }
 .btn-sysaudio:hover { background: var(--bg-tertiary); }
 .btn-sysaudio.active { background: #e8f4e8; color: #1a7a1a; border-color: #34c759; }
 [data-theme="dark"] .btn-sysaudio.active { background: #1a3a1a; color: #30d158; border-color: #30d158; }
@@ -698,8 +715,14 @@ body {
 
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
-  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span></button>
-  <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span></button>
+  <div class="mic-info" id="micInfo">
+    <div class="mic-meter" id="micMeter"><span></span><span></span><span></span><span></span></div>
+    <span class="mic-label" id="micLabel"></span>
+    <div class="sys-meter" id="sysMeter"><span></span><span></span><span></span><span></span></div>
+    <div class="device-dropdown" id="deviceDropdown"></div>
+  </div>
+  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span></button>
+  <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span><small class="btn-desc" data-i18n="sysAudioDesc">녹음 전 활성화 · 상대방/영상 소리도 번역</small></button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
   <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; <span data-i18n="download">다운로드</span></button>
   <button class="ctrl-btn btn-open" id="btnOpen" aria-label="Open JSON file">&#128194; <span data-i18n="open">열기</span></button>
@@ -874,6 +897,7 @@ const I18N = {
     invalidJsonFile: '유효하지 않은 회의록 파일입니다',
     fileLoaded: '파일을 불러왔습니다',
     sysAudio: '시스템 오디오',
+    sysAudioDesc: '녹음 전 활성화 · 상대방/영상 소리도 번역',
     sysAudioNotSupported: '이 브라우저는 시스템 오디오 캡처를 지원하지 않습니다.',
     displayShareCancelled: '화면 공유가 취소되었습니다.',
     noTabAudio: "선택한 탭에 오디오가 없습니다. '탭 오디오 공유'를 체크했는지 확인하세요.",
@@ -957,6 +981,7 @@ const I18N = {
     invalidJsonFile: 'Invalid transcript file',
     fileLoaded: 'File loaded',
     sysAudio: 'System Audio',
+    sysAudioDesc: 'Enable before REC · Translate meeting/video audio',
     sysAudioNotSupported: 'This browser does not support system audio capture.',
     displayShareCancelled: 'Screen sharing was cancelled.',
     noTabAudio: "The selected tab has no audio. Make sure 'Share tab audio' is checked.",
@@ -1012,7 +1037,7 @@ const state = {
   summary: '',
   summaryEntryCount: 0,
   useWhisper: false,
-  useSystemAudio: false,
+  useSystemAudio: localStorage.getItem('rt_use_sys_audio') === 'true',
 };
 
 // ============================================================
@@ -1217,7 +1242,7 @@ const translators = {
           messages: [{
             role: 'system',
             content: `You are a meeting assistant. Summarize the following meeting transcript.
-Format your response in the user's primary language with these sections:
+Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
 ## Key Topics
 ## Decisions
 ## Action Items
@@ -1289,7 +1314,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 2000,
           messages: [{
             role: 'user',
-            content: `Summarize the following meeting transcript. Format your response in the user's primary language with these sections:
+            content: `Summarize the following meeting transcript. Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
 ## Key Topics
 ## Decisions
 ## Action Items
@@ -1487,6 +1512,105 @@ let displayStream = null;
 let audioContext = null;
 let micStream = null;
 
+// Audio level meters (mic + system separate)
+let meterCtx = null;
+let meterRafId = null;
+let meterAnalysers = {}; // { mic, sys }
+let meterOnlyStream = null; // stream created solely for meter (non-whisper mode)
+let selectedDeviceId = localStorage.getItem('rt_mic_device') || '';
+
+function startAudioMeters(micStreamRef, sysStreamRef) {
+  meterCtx = new AudioContext();
+  meterAnalysers = {};
+
+  if (micStreamRef) {
+    const a = meterCtx.createAnalyser();
+    a.fftSize = 64;
+    meterCtx.createMediaStreamSource(micStreamRef).connect(a);
+    meterAnalysers.mic = a;
+  }
+  if (sysStreamRef) {
+    const a = meterCtx.createAnalyser();
+    a.fftSize = 64;
+    meterCtx.createMediaStreamSource(sysStreamRef).connect(a);
+    meterAnalysers.sys = a;
+  }
+
+  function drawBars(analyser, el, h) {
+    const bars = el.querySelectorAll('span');
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const step = Math.max(1, Math.floor(data.length / bars.length));
+    for (let i = 0; i < bars.length; i++) {
+      const val = data[i * step] / 255;
+      bars[i].style.height = Math.max(2, val * h) + 'px';
+    }
+  }
+
+  function draw() {
+    if (meterAnalysers.mic) drawBars(meterAnalysers.mic, $('#micMeter'), 16);
+    if (meterAnalysers.sys) drawBars(meterAnalysers.sys, $('#sysMeter'), 16);
+    // In-button meter: show sys if available (system audio mode), else mic
+    const btnMeter = $('#audioMeter');
+    const btnSource = meterAnalysers.sys || meterAnalysers.mic;
+    if (btnMeter && btnSource) {
+      const bars = btnMeter.querySelectorAll('span');
+      const data = new Uint8Array(btnSource.frequencyBinCount);
+      btnSource.getByteFrequencyData(data);
+      const step = Math.max(1, Math.floor(data.length / bars.length));
+      for (let i = 0; i < bars.length; i++) {
+        const val = data[i * step] / 255;
+        bars[i].style.height = Math.max(3, val * 20) + 'px';
+      }
+    }
+    meterRafId = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function stopAudioMeters() {
+  if (meterRafId) { cancelAnimationFrame(meterRafId); meterRafId = null; }
+  if (meterCtx) { meterCtx.close().catch(() => {}); meterCtx = null; }
+  if (meterOnlyStream) { meterOnlyStream.getTracks().forEach(t => t.stop()); meterOnlyStream = null; }
+  meterAnalysers = {};
+  ['#micMeter', '#sysMeter'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.querySelectorAll('span').forEach(b => b.style.height = '2px');
+  });
+  const btnMeter = $('#audioMeter');
+  if (btnMeter) {
+    btnMeter.classList.remove('active');
+    btnMeter.querySelectorAll('span').forEach(b => b.style.height = '3px');
+  }
+}
+
+function getMicConstraints() {
+  if (selectedDeviceId) return { audio: { deviceId: { exact: selectedDeviceId } } };
+  return { audio: true };
+}
+
+async function showDeviceDropdown() {
+  const dropdown = $('#deviceDropdown');
+  if (dropdown.classList.contains('open')) { dropdown.classList.remove('open'); return; }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const audioInputs = devices.filter(d => d.kind === 'audioinput');
+  dropdown.innerHTML = '';
+  audioInputs.forEach(d => {
+    const btn = document.createElement('button');
+    btn.textContent = d.label || 'Microphone';
+    if (d.deviceId === selectedDeviceId) btn.classList.add('selected');
+    btn.addEventListener('click', () => {
+      selectedDeviceId = d.deviceId;
+      localStorage.setItem('rt_mic_device', d.deviceId);
+      dropdown.classList.remove('open');
+      const label = $('#micLabel');
+      if (label) label.textContent = d.label || 'Microphone';
+    });
+    dropdown.appendChild(btn);
+  });
+  dropdown.classList.add('open');
+}
+
 function getSupportedMimeType() {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
   for (const type of types) {
@@ -1527,7 +1651,7 @@ async function initSystemAudioMixing() {
 
   let micStreamLocal;
   try {
-    micStreamLocal = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStreamLocal = await navigator.mediaDevices.getUserMedia(getMicConstraints());
   } catch (e) {
     displayStreamLocal.getTracks().forEach(track => track.stop());
     showToast(`마이크 접근 실패: ${e.message}`, 'error');
@@ -1565,7 +1689,7 @@ async function initWhisperRecording() {
       streamToRecord = await initSystemAudioMixing();
       if (!streamToRecord) return false;
     } else {
-      streamToRecord = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamToRecord = await navigator.mediaDevices.getUserMedia(getMicConstraints());
     }
 
     whisperStream = streamToRecord;
@@ -1766,10 +1890,23 @@ async function startRecording() {
 
   state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
+  let micStreamRef = null;
+  let sysStreamRef = null;
+
   if (state.useWhisper) {
     const ok = await initWhisperRecording();
     if (!ok) return;
     state.isRecording = true;
+    sysStreamRef = displayStream || null;
+    // Get a separate mic stream for the meter to avoid AudioContext conflicts
+    if (micStream) {
+      try {
+        micStreamRef = await navigator.mediaDevices.getUserMedia(getMicConstraints());
+        meterOnlyStream = micStreamRef;
+      } catch(e) { micStreamRef = null; }
+    } else {
+      micStreamRef = whisperStream;
+    }
     startWhisperChunkCycle();
   } else {
     // Always create a fresh recognition instance to avoid stale sessions on mobile
@@ -1778,6 +1915,10 @@ async function startRecording() {
     restartAttempts = 0;
     recognitionRestarting = false;
     state.isRecording = true;
+    try {
+      micStreamRef = await navigator.mediaDevices.getUserMedia(getMicConstraints());
+      meterOnlyStream = micStreamRef;
+    } catch(e) { /* meter is optional */ }
     try {
       recognition.start();
     } catch(e) {
@@ -1794,13 +1935,32 @@ async function startRecording() {
   }
 
   dom.btnRec.classList.add('recording');
-  dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span>`;
+  dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
+
+  // Start separate meters
+  startAudioMeters(micStreamRef, sysStreamRef);
+  const btnMeter = $('#audioMeter');
+  if (btnMeter && micStreamRef) btnMeter.classList.add('active');
+
+  // Show mic info panel
+  const micInfo = $('#micInfo');
+  if (micInfo && micStreamRef) {
+    const track = micStreamRef.getAudioTracks()[0];
+    const label = $('#micLabel');
+    if (track && label) label.textContent = track.label || 'Microphone';
+    micInfo.classList.add('active');
+  }
   dom.emptyState.style.display = 'none';
 }
 
 function stopRecording() {
   state.isRecording = false;
   recognitionRestarting = false;
+  stopAudioMeters();
+  const micInfo = $('#micInfo');
+  if (micInfo) micInfo.classList.remove('active');
+  const dropdown = $('#deviceDropdown');
+  if (dropdown) dropdown.classList.remove('open');
 
   if (state.useWhisper) {
     stopWhisperChunkCycle();
@@ -1811,7 +1971,7 @@ function stopRecording() {
   }
 
   dom.btnRec.classList.remove('recording');
-  dom.btnRec.innerHTML = `&#9679; <span data-i18n="rec">${t('rec')}</span>`;
+  dom.btnRec.innerHTML = `&#9679; <span data-i18n="rec">${t('rec')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
   state.interimText = '';
   clearTimeout(interimTranslateTimer);
   interimTranslateAbort = true;
@@ -2408,7 +2568,18 @@ function initEventListeners() {
       return;
     }
     state.useSystemAudio = next;
+    localStorage.setItem('rt_use_sys_audio', next);
     updateSysAudioToggle();
+  });
+
+  // Mic device selector
+  $('#micLabel').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDeviceDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    const dropdown = $('#deviceDropdown');
+    if (dropdown && !e.target.closest('.mic-info')) dropdown.classList.remove('open');
   });
 
   // Share & Download & Open
