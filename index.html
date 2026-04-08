@@ -408,7 +408,11 @@ body {
 .btn-download:hover { background: var(--bg-tertiary); }
 .btn-open { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-open:hover { background: var(--bg-tertiary); }
-.btn-sysaudio { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); font-size: 12px; padding: 6px 12px; min-height: 36px; border-radius: 18px; white-space: nowrap; }
+.audio-meter { display: none; align-items: flex-end; gap: 2px; height: 20px; margin-left: 4px; }
+.audio-meter.active { display: inline-flex; }
+.audio-meter span { display: block; width: 3px; border-radius: 1.5px; background: rgba(255,255,255,0.85); min-height: 3px; transition: height 0.08s ease-out; }
+.btn-sysaudio { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); font-size: 12px; padding: 2px 12px; border-radius: 22px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+.btn-sysaudio .btn-desc { font-size: 0.65em; opacity: 0.6; }
 .btn-sysaudio:hover { background: var(--bg-tertiary); }
 .btn-sysaudio.active { background: #e8f4e8; color: #1a7a1a; border-color: #34c759; }
 [data-theme="dark"] .btn-sysaudio.active { background: #1a3a1a; color: #30d158; border-color: #30d158; }
@@ -698,8 +702,8 @@ body {
 
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
-  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span></button>
-  <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span></button>
+  <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span></button>
+  <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span><small class="btn-desc" data-i18n="sysAudioDesc">녹음 전 활성화 · 상대방/영상 소리도 번역</small></button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
   <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; <span data-i18n="download">다운로드</span></button>
   <button class="ctrl-btn btn-open" id="btnOpen" aria-label="Open JSON file">&#128194; <span data-i18n="open">열기</span></button>
@@ -874,6 +878,7 @@ const I18N = {
     invalidJsonFile: '유효하지 않은 회의록 파일입니다',
     fileLoaded: '파일을 불러왔습니다',
     sysAudio: '시스템 오디오',
+    sysAudioDesc: '녹음 전 활성화 · 상대방/영상 소리도 번역',
     sysAudioNotSupported: '이 브라우저는 시스템 오디오 캡처를 지원하지 않습니다.',
     displayShareCancelled: '화면 공유가 취소되었습니다.',
     noTabAudio: "선택한 탭에 오디오가 없습니다. '탭 오디오 공유'를 체크했는지 확인하세요.",
@@ -957,6 +962,7 @@ const I18N = {
     invalidJsonFile: 'Invalid transcript file',
     fileLoaded: 'File loaded',
     sysAudio: 'System Audio',
+    sysAudioDesc: 'Enable before REC · Translate meeting/video audio',
     sysAudioNotSupported: 'This browser does not support system audio capture.',
     displayShareCancelled: 'Screen sharing was cancelled.',
     noTabAudio: "The selected tab has no audio. Make sure 'Share tab audio' is checked.",
@@ -1012,7 +1018,7 @@ const state = {
   summary: '',
   summaryEntryCount: 0,
   useWhisper: false,
-  useSystemAudio: false,
+  useSystemAudio: localStorage.getItem('rt_use_sys_audio') === 'true',
 };
 
 // ============================================================
@@ -1217,7 +1223,7 @@ const translators = {
           messages: [{
             role: 'system',
             content: `You are a meeting assistant. Summarize the following meeting transcript.
-Format your response in the user's primary language with these sections:
+Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
 ## Key Topics
 ## Decisions
 ## Action Items
@@ -1289,7 +1295,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 2000,
           messages: [{
             role: 'user',
-            content: `Summarize the following meeting transcript. Format your response in the user's primary language with these sections:
+            content: `Summarize the following meeting transcript. Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
 ## Key Topics
 ## Decisions
 ## Action Items
@@ -1486,6 +1492,48 @@ let whisperMimeType = 'audio/webm';
 let displayStream = null;
 let audioContext = null;
 let micStream = null;
+
+// Audio level meter
+let meterCtx = null;
+let meterAnalyser = null;
+let meterRafId = null;
+
+function startAudioMeter(stream) {
+  const meter = $('#audioMeter');
+  const bars = meter.querySelectorAll('span');
+  meter.classList.add('active');
+
+  meterCtx = new AudioContext();
+  const source = meterCtx.createMediaStreamSource(stream);
+  meterAnalyser = meterCtx.createAnalyser();
+  meterAnalyser.fftSize = 64;
+  source.connect(meterAnalyser);
+
+  const data = new Uint8Array(meterAnalyser.frequencyBinCount);
+
+  function draw() {
+    meterAnalyser.getByteFrequencyData(data);
+    // Sample 5 frequency bands
+    const step = Math.floor(data.length / bars.length);
+    for (let i = 0; i < bars.length; i++) {
+      const val = data[i * step] / 255;
+      bars[i].style.height = Math.max(3, val * 28) + 'px';
+    }
+    meterRafId = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function stopAudioMeter() {
+  if (meterRafId) { cancelAnimationFrame(meterRafId); meterRafId = null; }
+  if (meterCtx) { meterCtx.close().catch(() => {}); meterCtx = null; }
+  meterAnalyser = null;
+  const meter = $('#audioMeter');
+  if (meter) {
+    meter.classList.remove('active');
+    meter.querySelectorAll('span').forEach(b => b.style.height = '3px');
+  }
+}
 
 function getSupportedMimeType() {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
@@ -1766,10 +1814,13 @@ async function startRecording() {
 
   state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
+  let meterStream = null;
+
   if (state.useWhisper) {
     const ok = await initWhisperRecording();
     if (!ok) return;
     state.isRecording = true;
+    meterStream = whisperStream;
     startWhisperChunkCycle();
   } else {
     // Always create a fresh recognition instance to avoid stale sessions on mobile
@@ -1778,6 +1829,9 @@ async function startRecording() {
     restartAttempts = 0;
     recognitionRestarting = false;
     state.isRecording = true;
+    try {
+      meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e) { /* meter is optional */ }
     try {
       recognition.start();
     } catch(e) {
@@ -1794,13 +1848,15 @@ async function startRecording() {
   }
 
   dom.btnRec.classList.add('recording');
-  dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span>`;
+  dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
+  if (meterStream) startAudioMeter(meterStream);
   dom.emptyState.style.display = 'none';
 }
 
 function stopRecording() {
   state.isRecording = false;
   recognitionRestarting = false;
+  stopAudioMeter();
 
   if (state.useWhisper) {
     stopWhisperChunkCycle();
@@ -1811,7 +1867,7 @@ function stopRecording() {
   }
 
   dom.btnRec.classList.remove('recording');
-  dom.btnRec.innerHTML = `&#9679; <span data-i18n="rec">${t('rec')}</span>`;
+  dom.btnRec.innerHTML = `&#9679; <span data-i18n="rec">${t('rec')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
   state.interimText = '';
   clearTimeout(interimTranslateTimer);
   interimTranslateAbort = true;
@@ -2408,6 +2464,7 @@ function initEventListeners() {
       return;
     }
     state.useSystemAudio = next;
+    localStorage.setItem('rt_use_sys_audio', next);
     updateSysAudioToggle();
   });
 
