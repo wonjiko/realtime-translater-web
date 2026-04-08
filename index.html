@@ -408,6 +408,19 @@ body {
 .btn-download:hover { background: var(--bg-tertiary); }
 .btn-open { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-open:hover { background: var(--bg-tertiary); }
+.mic-info { display: none; align-items: center; gap: 4px; position: relative; }
+.mic-info.active { display: flex; }
+.mic-label { font-size: 11px; color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.mic-label:hover { background: var(--bg-tertiary); }
+.mic-meter { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
+.mic-meter span { display: block; width: 2px; border-radius: 1px; background: var(--accent); min-height: 2px; transition: height 0.08s ease-out; }
+.sys-meter { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
+.sys-meter span { display: block; width: 2px; border-radius: 1px; background: #34c759; min-height: 2px; transition: height 0.08s ease-out; }
+.device-dropdown { display: none; position: absolute; bottom: 100%; left: 0; margin-bottom: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px; max-width: 300px; z-index: 100; overflow: hidden; }
+.device-dropdown.open { display: block; }
+.device-dropdown button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 12px; border: none; background: none; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-dropdown button:hover { background: var(--bg-secondary); }
+.device-dropdown button.selected { color: var(--accent); font-weight: 600; }
 .audio-meter { display: none; align-items: flex-end; gap: 2px; height: 20px; margin-left: 4px; }
 .audio-meter.active { display: inline-flex; }
 .audio-meter span { display: block; width: 3px; border-radius: 1.5px; background: rgba(255,255,255,0.85); min-height: 3px; transition: height 0.08s ease-out; }
@@ -702,6 +715,12 @@ body {
 
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
+  <div class="mic-info" id="micInfo">
+    <div class="mic-meter" id="micMeter"><span></span><span></span><span></span><span></span></div>
+    <span class="mic-label" id="micLabel"></span>
+    <div class="sys-meter" id="sysMeter"><span></span><span></span><span></span><span></span></div>
+    <div class="device-dropdown" id="deviceDropdown"></div>
+  </div>
   <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span></button>
   <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span><small class="btn-desc" data-i18n="sysAudioDesc">녹음 전 활성화 · 상대방/영상 소리도 번역</small></button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
@@ -1493,46 +1512,103 @@ let displayStream = null;
 let audioContext = null;
 let micStream = null;
 
-// Audio level meter
+// Audio level meters (mic + system separate)
 let meterCtx = null;
-let meterAnalyser = null;
 let meterRafId = null;
+let meterAnalysers = {}; // { mic, sys }
+let meterOnlyStream = null; // stream created solely for meter (non-whisper mode)
+let selectedDeviceId = localStorage.getItem('rt_mic_device') || '';
 
-function startAudioMeter(stream) {
-  const meter = $('#audioMeter');
-  const bars = meter.querySelectorAll('span');
-  meter.classList.add('active');
-
+function startAudioMeters(micStreamRef, sysStreamRef) {
   meterCtx = new AudioContext();
-  const source = meterCtx.createMediaStreamSource(stream);
-  meterAnalyser = meterCtx.createAnalyser();
-  meterAnalyser.fftSize = 64;
-  source.connect(meterAnalyser);
+  meterAnalysers = {};
 
-  const data = new Uint8Array(meterAnalyser.frequencyBinCount);
+  if (micStreamRef) {
+    const a = meterCtx.createAnalyser();
+    a.fftSize = 64;
+    meterCtx.createMediaStreamSource(micStreamRef).connect(a);
+    meterAnalysers.mic = a;
+  }
+  if (sysStreamRef) {
+    const a = meterCtx.createAnalyser();
+    a.fftSize = 64;
+    meterCtx.createMediaStreamSource(sysStreamRef).connect(a);
+    meterAnalysers.sys = a;
+  }
 
-  function draw() {
-    meterAnalyser.getByteFrequencyData(data);
-    // Sample 5 frequency bands
-    const step = Math.floor(data.length / bars.length);
+  function drawBars(analyser, el, h) {
+    const bars = el.querySelectorAll('span');
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    const step = Math.max(1, Math.floor(data.length / bars.length));
     for (let i = 0; i < bars.length; i++) {
       const val = data[i * step] / 255;
-      bars[i].style.height = Math.max(3, val * 28) + 'px';
+      bars[i].style.height = Math.max(2, val * h) + 'px';
+    }
+  }
+
+  function draw() {
+    if (meterAnalysers.mic) drawBars(meterAnalysers.mic, $('#micMeter'), 16);
+    if (meterAnalysers.sys) drawBars(meterAnalysers.sys, $('#sysMeter'), 16);
+    // Also drive the in-button meter from mic
+    const btnMeter = $('#audioMeter');
+    if (btnMeter && meterAnalysers.mic) {
+      const a = meterAnalysers.mic;
+      const bars = btnMeter.querySelectorAll('span');
+      const data = new Uint8Array(a.frequencyBinCount);
+      a.getByteFrequencyData(data);
+      const step = Math.max(1, Math.floor(data.length / bars.length));
+      for (let i = 0; i < bars.length; i++) {
+        const val = data[i * step] / 255;
+        bars[i].style.height = Math.max(3, val * 20) + 'px';
+      }
     }
     meterRafId = requestAnimationFrame(draw);
   }
   draw();
 }
 
-function stopAudioMeter() {
+function stopAudioMeters() {
   if (meterRafId) { cancelAnimationFrame(meterRafId); meterRafId = null; }
   if (meterCtx) { meterCtx.close().catch(() => {}); meterCtx = null; }
-  meterAnalyser = null;
-  const meter = $('#audioMeter');
-  if (meter) {
-    meter.classList.remove('active');
-    meter.querySelectorAll('span').forEach(b => b.style.height = '3px');
+  if (meterOnlyStream) { meterOnlyStream.getTracks().forEach(t => t.stop()); meterOnlyStream = null; }
+  meterAnalysers = {};
+  ['#micMeter', '#sysMeter'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.querySelectorAll('span').forEach(b => b.style.height = '2px');
+  });
+  const btnMeter = $('#audioMeter');
+  if (btnMeter) {
+    btnMeter.classList.remove('active');
+    btnMeter.querySelectorAll('span').forEach(b => b.style.height = '3px');
   }
+}
+
+function getMicConstraints() {
+  if (selectedDeviceId) return { audio: { deviceId: { exact: selectedDeviceId } } };
+  return { audio: true };
+}
+
+async function showDeviceDropdown() {
+  const dropdown = $('#deviceDropdown');
+  if (dropdown.classList.contains('open')) { dropdown.classList.remove('open'); return; }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const audioInputs = devices.filter(d => d.kind === 'audioinput');
+  dropdown.innerHTML = '';
+  audioInputs.forEach(d => {
+    const btn = document.createElement('button');
+    btn.textContent = d.label || 'Microphone';
+    if (d.deviceId === selectedDeviceId) btn.classList.add('selected');
+    btn.addEventListener('click', () => {
+      selectedDeviceId = d.deviceId;
+      localStorage.setItem('rt_mic_device', d.deviceId);
+      dropdown.classList.remove('open');
+      const label = $('#micLabel');
+      if (label) label.textContent = d.label || 'Microphone';
+    });
+    dropdown.appendChild(btn);
+  });
+  dropdown.classList.add('open');
 }
 
 function getSupportedMimeType() {
@@ -1575,7 +1651,7 @@ async function initSystemAudioMixing() {
 
   let micStreamLocal;
   try {
-    micStreamLocal = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStreamLocal = await navigator.mediaDevices.getUserMedia(getMicConstraints());
   } catch (e) {
     displayStreamLocal.getTracks().forEach(track => track.stop());
     showToast(`마이크 접근 실패: ${e.message}`, 'error');
@@ -1613,7 +1689,7 @@ async function initWhisperRecording() {
       streamToRecord = await initSystemAudioMixing();
       if (!streamToRecord) return false;
     } else {
-      streamToRecord = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamToRecord = await navigator.mediaDevices.getUserMedia(getMicConstraints());
     }
 
     whisperStream = streamToRecord;
@@ -1814,13 +1890,15 @@ async function startRecording() {
 
   state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
-  let meterStream = null;
+  let micStreamRef = null;
+  let sysStreamRef = null;
 
   if (state.useWhisper) {
     const ok = await initWhisperRecording();
     if (!ok) return;
     state.isRecording = true;
-    meterStream = whisperStream;
+    micStreamRef = micStream || whisperStream;
+    sysStreamRef = displayStream || null;
     startWhisperChunkCycle();
   } else {
     // Always create a fresh recognition instance to avoid stale sessions on mobile
@@ -1830,7 +1908,8 @@ async function startRecording() {
     recognitionRestarting = false;
     state.isRecording = true;
     try {
-      meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef = await navigator.mediaDevices.getUserMedia(getMicConstraints());
+      meterOnlyStream = micStreamRef;
     } catch(e) { /* meter is optional */ }
     try {
       recognition.start();
@@ -1849,14 +1928,31 @@ async function startRecording() {
 
   dom.btnRec.classList.add('recording');
   dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
-  if (meterStream) startAudioMeter(meterStream);
+
+  // Start separate meters
+  startAudioMeters(micStreamRef, sysStreamRef);
+  const btnMeter = $('#audioMeter');
+  if (btnMeter && micStreamRef) btnMeter.classList.add('active');
+
+  // Show mic info panel
+  const micInfo = $('#micInfo');
+  if (micInfo && micStreamRef) {
+    const track = micStreamRef.getAudioTracks()[0];
+    const label = $('#micLabel');
+    if (track && label) label.textContent = track.label || 'Microphone';
+    micInfo.classList.add('active');
+  }
   dom.emptyState.style.display = 'none';
 }
 
 function stopRecording() {
   state.isRecording = false;
   recognitionRestarting = false;
-  stopAudioMeter();
+  stopAudioMeters();
+  const micInfo = $('#micInfo');
+  if (micInfo) micInfo.classList.remove('active');
+  const dropdown = $('#deviceDropdown');
+  if (dropdown) dropdown.classList.remove('open');
 
   if (state.useWhisper) {
     stopWhisperChunkCycle();
@@ -2466,6 +2562,16 @@ function initEventListeners() {
     state.useSystemAudio = next;
     localStorage.setItem('rt_use_sys_audio', next);
     updateSysAudioToggle();
+  });
+
+  // Mic device selector
+  $('#micLabel').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDeviceDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    const dropdown = $('#deviceDropdown');
+    if (dropdown && !e.target.closest('.mic-info')) dropdown.classList.remove('open');
   });
 
   // Share & Download & Open
