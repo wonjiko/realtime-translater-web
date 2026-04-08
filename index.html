@@ -408,6 +408,10 @@ body {
 .btn-download:hover { background: var(--bg-tertiary); }
 .btn-open { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-open:hover { background: var(--bg-tertiary); }
+.btn-sysaudio { background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border); font-size: 12px; padding: 6px 12px; min-height: 36px; border-radius: 18px; white-space: nowrap; }
+.btn-sysaudio:hover { background: var(--bg-tertiary); }
+.btn-sysaudio.active { background: #e8f4e8; color: #1a7a1a; border-color: #34c759; }
+[data-theme="dark"] .btn-sysaudio.active { background: #1a3a1a; color: #30d158; border-color: #30d158; }
 
 /* Settings Modal */
 .modal-overlay {
@@ -695,6 +699,7 @@ body {
 <!-- Control Bar -->
 <div class="control-bar" id="controlBar">
   <button class="ctrl-btn btn-rec" id="btnRec" aria-label="Start recording">&#9679; <span data-i18n="rec">REC</span></button>
+  <button class="ctrl-btn btn-sysaudio" id="btnSysAudio" aria-label="Toggle system audio capture">&#127908; <span data-i18n="sysAudio">시스템 오디오</span></button>
   <button class="ctrl-btn btn-share" id="btnShare" aria-label="Share transcript">&#128279; <span data-i18n="share">공유</span></button>
   <button class="ctrl-btn btn-download" id="btnDownload" aria-label="Download transcript">&#8595; <span data-i18n="download">다운로드</span></button>
   <button class="ctrl-btn btn-open" id="btnOpen" aria-label="Open JSON file">&#128194; <span data-i18n="open">열기</span></button>
@@ -868,6 +873,12 @@ const I18N = {
     open: '열기',
     invalidJsonFile: '유효하지 않은 회의록 파일입니다',
     fileLoaded: '파일을 불러왔습니다',
+    sysAudio: '시스템 오디오',
+    sysAudioNotSupported: '이 브라우저는 시스템 오디오 캡처를 지원하지 않습니다.',
+    displayShareCancelled: '화면 공유가 취소되었습니다.',
+    noTabAudio: "선택한 탭에 오디오가 없습니다. '탭 오디오 공유'를 체크했는지 확인하세요.",
+    sysAudioRequiresKey: '시스템 오디오는 OpenAI API 키가 필요합니다. Settings에서 키를 설정하세요.',
+    displayShareEnded: '탭 공유가 중단되었습니다. 마이크만 캡처됩니다.',
   },
   en: {
     pageTitle: 'Real-Time Meeting Translator',
@@ -945,6 +956,12 @@ const I18N = {
     open: 'Open',
     invalidJsonFile: 'Invalid transcript file',
     fileLoaded: 'File loaded',
+    sysAudio: 'System Audio',
+    sysAudioNotSupported: 'This browser does not support system audio capture.',
+    displayShareCancelled: 'Screen sharing was cancelled.',
+    noTabAudio: "The selected tab has no audio. Make sure 'Share tab audio' is checked.",
+    sysAudioRequiresKey: 'System audio requires an OpenAI API key. Set it up in Settings.',
+    displayShareEnded: 'Tab sharing has stopped. Only microphone audio is being captured.',
   }
 };
 
@@ -995,6 +1012,7 @@ const state = {
   summary: '',
   summaryEntryCount: 0,
   useWhisper: false,
+  useSystemAudio: false,
 };
 
 // ============================================================
@@ -1010,6 +1028,7 @@ const dom = {
   summaryContent: $('#summaryContent'),
   summaryDisabled: $('#summaryDisabled'),
   btnRec: $('#btnRec'),
+  btnSysAudio: $('#btnSysAudio'),
   btnShare: $('#btnShare'),
   btnDownload: $('#btnDownload'),
   btnLocale: $('#btnLocale'),
@@ -1464,6 +1483,9 @@ let whisperStream = null;
 let whisperChunkTimer = null;
 let whisperAudioChunks = [];
 let whisperMimeType = 'audio/webm';
+let displayStream = null;
+let audioContext = null;
+let micStream = null;
 
 function getSupportedMimeType() {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
@@ -1480,9 +1502,73 @@ function getFileExtension(mimeType) {
   return 'webm';
 }
 
+async function initSystemAudioMixing() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    showToast(t('sysAudioNotSupported'), 'error');
+    return null;
+  }
+
+  let displayStreamLocal;
+  try {
+    displayStreamLocal = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  } catch (e) {
+    showToast(t('displayShareCancelled'), 'info');
+    return null;
+  }
+
+  // 비디오 트랙 즉시 중단 (오디오만 필요)
+  displayStreamLocal.getVideoTracks().forEach(track => track.stop());
+
+  if (displayStreamLocal.getAudioTracks().length === 0) {
+    displayStreamLocal.getTracks().forEach(track => track.stop());
+    showToast(t('noTabAudio'), 'error');
+    return null;
+  }
+
+  let micStreamLocal;
+  try {
+    micStreamLocal = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    displayStreamLocal.getTracks().forEach(track => track.stop());
+    showToast(`마이크 접근 실패: ${e.message}`, 'error');
+    return null;
+  }
+
+  const ctx = new AudioContext();
+  const dest = ctx.createMediaStreamDestination();
+  ctx.createMediaStreamSource(micStreamLocal).connect(dest);
+  ctx.createMediaStreamSource(displayStreamLocal).connect(dest);
+
+  displayStream = displayStreamLocal;
+  micStream = micStreamLocal;
+  audioContext = ctx;
+
+  // 사용자가 브라우저 UI에서 탭 공유를 직접 중단한 경우 알림
+  displayStreamLocal.getAudioTracks().forEach(track => {
+    track.addEventListener('ended', () => {
+      showToast(t('displayShareEnded'), 'info');
+      if (displayStream) {
+        displayStream.getTracks().forEach(t => t.stop());
+        displayStream = null;
+      }
+    });
+  });
+
+  return dest.stream;
+}
+
 async function initWhisperRecording() {
   try {
-    whisperStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let streamToRecord;
+
+    if (state.useSystemAudio) {
+      streamToRecord = await initSystemAudioMixing();
+      if (!streamToRecord) return false;
+    } else {
+      streamToRecord = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+
+    whisperStream = streamToRecord;
     const mime = getSupportedMimeType();
     whisperMimeType = mime || 'audio/webm';
     whisperMediaRecorder = new MediaRecorder(whisperStream, {
@@ -1538,6 +1624,18 @@ function stopWhisperChunkCycle() {
   if (whisperStream) {
     whisperStream.getTracks().forEach(t => t.stop());
     whisperStream = null;
+  }
+  if (displayStream) {
+    displayStream.getTracks().forEach(t => t.stop());
+    displayStream = null;
+  }
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
   }
   whisperMediaRecorder = null;
   updateWhisperStatus('');
@@ -1620,13 +1718,53 @@ function updateWhisperStatus(text) {
   el.style.display = text ? '' : 'none';
 }
 
+function updateSysAudioToggle() {
+  if (!dom.btnSysAudio) return;
+  dom.btnSysAudio.classList.toggle('active', state.useSystemAudio);
+}
+
+// 녹음 전 정합성 검사 — 문제가 있으면 toast 표시 후 false 반환
+function validateBeforeRecording() {
+  const settings = getSettings();
+
+  // 시스템 오디오 → OpenAI 키 필수 (Whisper 사용)
+  if (state.useSystemAudio && !settings.openaiKey) {
+    showToast(t('sysAudioRequiresKey'), 'error');
+    return false;
+  }
+
+  // 자동 언어감지 → OpenAI 키 필수 (Whisper 사용)
+  if (state.sourceLang === 'auto' && !settings.openaiKey) {
+    showToast('자동 언어 감지는 OpenAI API 키가 필요합니다. Settings에서 키를 설정하세요.', 'error');
+    return false;
+  }
+
+  // 번역 제공자별 자격증명 확인
+  if (settings.provider === 'openai' && !settings.openaiKey) {
+    showToast('OpenAI 번역을 사용하려면 API 키가 필요합니다. Settings에서 키를 설정하세요.', 'error');
+    return false;
+  }
+  if (settings.provider === 'anthropic' && !settings.anthropicKey) {
+    showToast('Anthropic 번역을 사용하려면 API 키가 필요합니다. Settings에서 키를 설정하세요.', 'error');
+    return false;
+  }
+  if (settings.provider === 'gas' && !settings.gasUrl) {
+    showToast('Google Apps Script 번역을 사용하려면 GAS URL이 필요합니다. Settings에서 설정하세요.', 'error');
+    return false;
+  }
+
+  return true;
+}
+
 async function startRecording() {
   if (!navigator.onLine) {
     showToast(t('cannotRecordOffline'), 'error');
     return;
   }
 
-  state.useWhisper = (state.sourceLang === 'auto');
+  if (!validateBeforeRecording()) return;
+
+  state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
   if (state.useWhisper) {
     const ok = await initWhisperRecording();
@@ -1955,6 +2093,7 @@ function setReadOnlyMode(readOnly) {
   dom.btnSettings.style.display = readOnly ? 'none' : '';
   // In read-only mode, hide rec/share but keep download/open visible
   dom.btnRec.style.display = readOnly ? 'none' : '';
+  dom.btnSysAudio.style.display = readOnly ? 'none' : '';
   dom.btnShare.style.display = readOnly ? 'none' : '';
   dom.noteTextarea.readOnly = readOnly;
   if (readOnly) {
@@ -2039,17 +2178,28 @@ function initSettingsUI() {
 function updateWhisperAvailability() {
   const settings = getSettings();
   const autoOption = $('#optAutoDetect');
-  if (!autoOption) return;
   if (settings.openaiKey) {
-    autoOption.disabled = false;
+    if (autoOption) autoOption.disabled = false;
+    if (dom.btnSysAudio) {
+      dom.btnSysAudio.disabled = false;
+      dom.btnSysAudio.title = '';
+    }
   } else {
-    autoOption.disabled = true;
+    if (autoOption) autoOption.disabled = true;
     if (state.sourceLang === 'auto') {
       state.sourceLang = localStorage.getItem('rt_source_lang') || 'ko-KR';
       if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
       dom.sourceLang.value = state.sourceLang;
       localStorage.setItem('rt_source_lang', state.sourceLang);
       updateTargetCheckboxes();
+    }
+    if (dom.btnSysAudio) {
+      dom.btnSysAudio.disabled = true;
+      dom.btnSysAudio.title = 'OpenAI API 키가 필요합니다 (Settings에서 설정)';
+      if (state.useSystemAudio) {
+        state.useSystemAudio = false;
+        updateSysAudioToggle();
+      }
     }
   }
 }
@@ -2248,6 +2398,17 @@ function initEventListeners() {
     } else {
       startRecording();
     }
+  });
+
+  dom.btnSysAudio.addEventListener('click', () => {
+    if (state.isReadOnly || state.isRecording) return;
+    const next = !state.useSystemAudio;
+    if (next && !getSettings().openaiKey) {
+      showToast(t('sysAudioRequiresKey'), 'error');
+      return;
+    }
+    state.useSystemAudio = next;
+    updateSysAudioToggle();
   });
 
   // Share & Download & Open
@@ -2461,6 +2622,7 @@ function init() {
 
   // Init UI components
   initEventListeners();
+  updateSysAudioToggle();
   initResizer();
   initSectionToggles();
 
