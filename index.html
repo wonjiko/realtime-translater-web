@@ -805,8 +805,6 @@ body {
       <div id="enhancedModelGroup" style="display:none;margin-top:8px">
         <label data-i18n="enhancedModel" style="font-size:13px">번역 모델</label>
         <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
-          <option value="gpt-4.5-preview">gpt-4.5-preview (최고 품질)</option>
-          <option value="gpt-4.1">gpt-4.1 (고품질)</option>
           <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
           <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
           <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
@@ -833,7 +831,10 @@ body {
       </div>
       <div id="chunkSilenceOptions" style="display:none">
         <label data-i18n="silenceThreshold" style="font-size:13px">무음 감도</label>
-        <input type="range" id="silenceThresholdSlider" min="10" max="80" value="30" style="width:100%;margin:6px 0;accent-color:var(--accent)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="silenceThresholdSlider" min="10" max="80" value="30" style="flex:1;margin:6px 0;accent-color:var(--accent)">
+          <span id="silenceThresholdValue" style="font-size:13px;min-width:28px;text-align:center;color:var(--text-secondary)">30</span>
+        </div>
         <div class="hint" data-i18n="silenceHint">낮을수록 민감 (조용한 환경), 높을수록 둔감 (시끄러운 환경)</div>
         <label data-i18n="maxChunkDuration" style="font-size:13px;margin-top:8px;display:block">최대 분할 시간</label>
         <div class="theme-toggle" style="margin-top:4px">
@@ -1841,6 +1842,13 @@ function startWhisperTimeChunkCycle(settings) {
 }
 
 function startWhisperSilenceChunkCycle(settings) {
+  // Reuse meter analyser if available, otherwise fall back to time-based
+  const analyser = meterAnalysers.mic || meterAnalysers.sys;
+  if (!analyser) {
+    startWhisperTimeChunkCycle(settings);
+    return;
+  }
+
   const threshold = settings.silenceThreshold || 30;
   const maxMs = settings.maxChunkDuration || 10000;
   const minChunkMs = 1500;
@@ -1857,10 +1865,6 @@ function startWhisperSilenceChunkCycle(settings) {
   }
   setupWhisperOnStop(recordNextChunk);
   recordNextChunk();
-
-  // Reuse meter analyser if available, otherwise create one
-  const analyser = meterAnalysers.mic || meterAnalysers.sys;
-  if (!analyser) return; // No analyser available, fall back won't split by silence
 
   const data = new Uint8Array(analyser.frequencyBinCount);
   silenceCheckInterval = setInterval(() => {
@@ -2607,6 +2611,7 @@ function initSettingsUI() {
     btn.classList.toggle('active', parseInt(btn.dataset.chunkDur) === settings.chunkDuration);
   });
   $('#silenceThresholdSlider').value = settings.silenceThreshold;
+  $('#silenceThresholdValue').textContent = settings.silenceThreshold;
   $$('[data-max-dur]').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.maxDur) === settings.maxChunkDuration);
   });
@@ -3007,7 +3012,10 @@ function initEventListeners() {
   });
 
   // Silence threshold slider
-  $('#silenceThresholdSlider').addEventListener('input', () => saveCurrentSettings());
+  $('#silenceThresholdSlider').addEventListener('input', () => {
+    $('#silenceThresholdValue').textContent = $('#silenceThresholdSlider').value;
+    saveCurrentSettings();
+  });
 
   // Test GAS connection
   dom.btnTestGas.addEventListener('click', async () => {
