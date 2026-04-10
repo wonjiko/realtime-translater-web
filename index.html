@@ -809,16 +809,20 @@ body {
           <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
           <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
         </select>
-        <input type="text" id="enhancedModelCustomInput" placeholder="모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
+        <input type="text" id="enhancedModelCustomInput" data-i18n-placeholder="enhancedModelPlaceholder" placeholder="audio input 지원 모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
       </div>
-      <div class="hint" data-i18n="enhancedModeHint" style="margin-top:6px">고품질 모드는 음성을 선택한 모델로 직접 전송합니다. 비용이 높지만 번역 품질이 향상됩니다.</div>
+      <div id="translationModeHint" class="hint" data-i18n="standardModeHint" style="margin-top:6px">음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리</div>
     </div>
 
     <div class="setting-group" id="fieldsChunkSettings">
       <label data-i18n="chunkSettings">음성 분할</label>
+      <div class="hint" data-i18n="chunkDesc" style="margin-bottom:8px">연속 음성을 일정 단위로 잘라 번역합니다. 짧으면 빠르게, 길면 문맥을 더 잘 이해합니다.</div>
       <div class="theme-toggle" style="margin-bottom:8px">
         <button class="theme-btn active" data-chunk-mode="time" data-i18n="timeBased">시간 기반</button>
         <button class="theme-btn" data-chunk-mode="silence" data-i18n="silenceBased">무음 감지</button>
+      </div>
+      <div id="chunkModeHintWrap">
+        <div class="hint" id="chunkModeHint" data-i18n="timeBasedHint" style="margin-bottom:8px">일정 시간마다 자동으로 잘라서 번역합니다.</div>
       </div>
       <div id="chunkTimeOptions">
         <label data-i18n="chunkDuration" style="font-size:13px">분할 간격</label>
@@ -843,7 +847,7 @@ body {
           <button class="theme-btn" data-max-dur="15000">15s</button>
         </div>
       </div>
-      <div class="hint" data-i18n="chunkHint" style="margin-top:6px">Whisper 모드(자동 감지/시스템 오디오)에만 적용됩니다.</div>
+      <div class="hint" data-i18n="chunkHint" style="margin-top:6px">Whisper 모드(자동 감지/시스템 오디오)에만 적용 · 녹음 중에는 변경 불가</div>
     </div>
   </div>
 </div>
@@ -946,18 +950,23 @@ const I18N = {
     translationMode: '번역 모드',
     standardMode: '표준',
     enhancedMode: '고품질 (Audio)',
-    enhancedModeHint: '고품질 모드는 음성을 선택한 모델로 직접 전송합니다. 비용이 높지만 번역 품질이 향상됩니다.',
+    standardModeHint: '음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리',
+    enhancedModeHint: '음성 → 모델(원문+번역 동시 반환) · 1단계 처리 · 고품질',
     enhancedModel: '번역 모델',
     enhancedModelCustom: '직접 입력',
     enhancedFallback: '고품질 모드 실패, 표준 모드로 전환합니다',
     chunkSettings: '음성 분할',
+    chunkDesc: '연속 음성을 일정 단위로 잘라 번역합니다. 짧으면 빠르게, 길면 문맥을 더 잘 이해합니다.',
     timeBased: '시간 기반',
+    timeBasedHint: '일정 시간마다 자동으로 잘라서 번역합니다.',
     silenceBased: '무음 감지',
+    silenceBasedHint: '말이 끊기는 순간을 감지해서 자연스럽게 잘라 번역합니다.',
     chunkDuration: '분할 간격',
     silenceThreshold: '무음 감도',
     silenceHint: '낮을수록 민감 (조용한 환경), 높을수록 둔감 (시끄러운 환경)',
     maxChunkDuration: '최대 분할 시간',
-    chunkHint: 'Whisper 모드(자동 감지/시스템 오디오)에만 적용됩니다.',
+    enhancedModelPlaceholder: 'audio input 지원 모델명 입력',
+    chunkHint: 'Whisper 모드(자동 감지/시스템 오디오)에만 적용 · 녹음 중에는 변경 불가',
     open: '열기',
     invalidJsonFile: '유효하지 않은 회의록 파일입니다',
     fileLoaded: '파일을 불러왔습니다',
@@ -968,6 +977,7 @@ const I18N = {
     noTabAudio: "선택한 탭에 오디오가 없습니다. '탭 오디오 공유'를 체크했는지 확인하세요.",
     sysAudioRequiresKey: '시스템 오디오는 OpenAI API 키가 필요합니다. Settings에서 키를 설정하세요.',
     displayShareEnded: '탭 공유가 중단되었습니다. 마이크만 캡처됩니다.',
+    langChangedRestart: '언어가 변경되어 녹음을 재시작합니다',
   },
   en: {
     pageTitle: 'Real-Time Meeting Translator',
@@ -1045,18 +1055,23 @@ const I18N = {
     translationMode: 'Translation Mode',
     standardMode: 'Standard',
     enhancedMode: 'Enhanced (Audio)',
-    enhancedModeHint: 'Enhanced mode sends audio directly to the selected model. Higher cost but better translation quality.',
+    standardModeHint: 'Audio → Whisper (transcript) → Translation API (translate) · 2-step',
+    enhancedModeHint: 'Audio → Model (transcript + translation at once) · 1-step · high quality',
     enhancedModel: 'Translation Model',
     enhancedModelCustom: 'Custom',
     enhancedFallback: 'Enhanced mode failed, falling back to standard mode',
     chunkSettings: 'Audio Splitting',
+    chunkDesc: 'Splits continuous audio into chunks for translation. Shorter = faster, longer = better context.',
     timeBased: 'Time-based',
+    timeBasedHint: 'Splits audio at fixed time intervals.',
     silenceBased: 'Silence Detection',
+    silenceBasedHint: 'Detects pauses in speech and splits naturally at silence.',
     chunkDuration: 'Split Interval',
     silenceThreshold: 'Silence Sensitivity',
     silenceHint: 'Lower = more sensitive (quiet environment), Higher = less sensitive (noisy environment)',
     maxChunkDuration: 'Max Split Duration',
-    chunkHint: 'Only applies to Whisper mode (auto-detect / system audio).',
+    enhancedModelPlaceholder: 'Enter audio-input compatible model name',
+    chunkHint: 'Whisper mode only (auto-detect / system audio) · Locked during recording',
     open: 'Open',
     invalidJsonFile: 'Invalid transcript file',
     fileLoaded: 'File loaded',
@@ -1067,6 +1082,7 @@ const I18N = {
     noTabAudio: "The selected tab has no audio. Make sure 'Share tab audio' is checked.",
     sysAudioRequiresKey: 'System audio requires an OpenAI API key. Set it up in Settings.',
     displayShareEnded: 'Tab sharing has stopped. Only microphone audio is being captured.',
+    langChangedRestart: 'Language changed — restarting recording',
   }
 };
 
@@ -1914,6 +1930,13 @@ function stopWhisperChunkCycle() {
   updateWhisperStatus('');
 }
 
+function setChunkSettingsLocked(locked) {
+  const el = $('#fieldsChunkSettings');
+  if (!el) return;
+  el.style.opacity = locked ? '0.5' : '';
+  el.style.pointerEvents = locked ? 'none' : '';
+}
+
 async function processWhisperChunk(audioBlob) {
   if (audioBlob.size < 1000) return;
 
@@ -1940,6 +1963,10 @@ async function processWhisperChunkStandard(audioBlob, settings) {
   formData.append('file', audioBlob, `audio.${ext}`);
   formData.append('model', 'whisper-1');
   formData.append('response_format', 'verbose_json');
+  // Pass language hint when source is explicitly set (not auto-detect)
+  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang]) {
+    formData.append('language', LANG_MAP[state.sourceLang].code);
+  }
 
   try {
     const res = await fetchWithTimeout('https://api.openai.com/v1/audio/transcriptions', {
@@ -2024,6 +2051,11 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
   if (!result.text?.trim()) return;
 
   const detectedLang = WHISPER_LANG_TO_APP[result.lang?.toLowerCase()] || result.lang;
+
+  // Skip if source language is explicitly set and detected language doesn't match
+  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang] && detectedLang && detectedLang !== LANG_MAP[state.sourceLang].code) {
+    return;
+  }
   const entry = {
     ts: Math.floor(Date.now() / 1000),
     s: detectedLang || '??',
@@ -2058,6 +2090,11 @@ function handleWhisperResult(data) {
   if (!text) return;
 
   const detectedLang = WHISPER_LANG_TO_APP[data.language?.toLowerCase()];
+
+  // Skip if source language is explicitly set and detected language doesn't match
+  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang] && detectedLang && detectedLang !== LANG_MAP[state.sourceLang].code) {
+    return;
+  }
 
   const entry = {
     ts: Math.floor(Date.now() / 1000),
@@ -2184,6 +2221,7 @@ async function startRecording() {
     }
   }
 
+  setChunkSettingsLocked(true);
   dom.btnRec.classList.add('recording');
   dom.btnRec.innerHTML = `&#9632; <span data-i18n="stop">${t('stop')}</span><span class="audio-meter" id="audioMeter"><span></span><span></span><span></span><span></span><span></span></span>`;
 
@@ -2206,6 +2244,7 @@ async function startRecording() {
 function stopRecording() {
   state.isRecording = false;
   recognitionRestarting = false;
+  setChunkSettingsLocked(false);
   stopAudioMeters();
   const micInfo = $('#micInfo');
   if (micInfo) micInfo.classList.remove('active');
@@ -2589,6 +2628,10 @@ function initSettingsUI() {
     btn.classList.toggle('active', btn.dataset.modeVal === settings.translationMode);
   });
   $('#enhancedModelGroup').style.display = settings.translationMode === 'enhanced' ? '' : 'none';
+  const hintKey = settings.translationMode === 'enhanced' ? 'enhancedModeHint' : 'standardModeHint';
+  const hintEl = $('#translationModeHint');
+  hintEl.dataset.i18n = hintKey;
+  hintEl.textContent = t(hintKey);
   const modelSelect = $('#enhancedModelSelect');
   const customInput = $('#enhancedModelCustomInput');
   const presetValues = [...modelSelect.options].map(o => o.value).filter(v => v !== 'custom');
@@ -2605,6 +2648,10 @@ function initSettingsUI() {
   $$('[data-chunk-mode]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.chunkMode === settings.chunkMode);
   });
+  const chunkHintKey = settings.chunkMode === 'silence' ? 'silenceBasedHint' : 'timeBasedHint';
+  const chunkModeHint = $('#chunkModeHint');
+  chunkModeHint.dataset.i18n = chunkHintKey;
+  chunkModeHint.textContent = t(chunkHintKey);
   $('#chunkTimeOptions').style.display = settings.chunkMode === 'time' ? '' : 'none';
   $('#chunkSilenceOptions').style.display = settings.chunkMode === 'silence' ? '' : 'none';
   $$('[data-chunk-dur]').forEach(btn => {
@@ -2910,6 +2957,7 @@ function initEventListeners() {
     state.sourceLang = val;
     localStorage.setItem('rt_source_lang', val);
     if (state.isRecording) {
+      showToast(t('langChangedRestart'), 'info');
       stopRecording();
       startRecording();
     }
@@ -2948,8 +2996,27 @@ function initEventListeners() {
   // Provider change
   $$('input[name="provider"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
-      updateProviderFields(e.target.value);
+      const newProvider = e.target.value;
+      updateProviderFields(newProvider);
+      // Enhanced mode is only available for openai — reset to standard if switching away
+      if (newProvider !== 'openai') {
+        const activeMode = document.querySelector('[data-mode-val].active');
+        if (activeMode && activeMode.dataset.modeVal === 'enhanced') {
+          $$('[data-mode-val]').forEach(b => b.classList.remove('active'));
+          document.querySelector('[data-mode-val="standard"]').classList.add('active');
+          $('#enhancedModelGroup').style.display = 'none';
+          const hint = $('#translationModeHint');
+          hint.dataset.i18n = 'standardModeHint';
+          hint.textContent = t('standardModeHint');
+        }
+      }
+      saveCurrentSettings();
     });
+  });
+
+  // API key inputs — save on change
+  ['#inputOpenaiKey', '#inputAnthropicKey', '#inputGasUrl'].forEach(sel => {
+    $(sel).addEventListener('change', () => saveCurrentSettings());
   });
 
   // Theme buttons
@@ -2970,6 +3037,10 @@ function initEventListeners() {
       btn.classList.add('active');
       const isEnhanced = btn.dataset.modeVal === 'enhanced';
       $('#enhancedModelGroup').style.display = isEnhanced ? '' : 'none';
+      const hint = $('#translationModeHint');
+      const key = isEnhanced ? 'enhancedModeHint' : 'standardModeHint';
+      hint.dataset.i18n = key;
+      hint.textContent = t(key);
       saveCurrentSettings();
     });
   });
@@ -2989,6 +3060,10 @@ function initEventListeners() {
       const isSilence = btn.dataset.chunkMode === 'silence';
       $('#chunkTimeOptions').style.display = isSilence ? 'none' : '';
       $('#chunkSilenceOptions').style.display = isSilence ? '' : 'none';
+      const chunkHint = $('#chunkModeHint');
+      const chunkKey = isSilence ? 'silenceBasedHint' : 'timeBasedHint';
+      chunkHint.dataset.i18n = chunkKey;
+      chunkHint.textContent = t(chunkKey);
       saveCurrentSettings();
     });
   });
