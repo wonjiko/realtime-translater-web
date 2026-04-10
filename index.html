@@ -799,8 +799,8 @@ body {
     <div class="setting-group" id="fieldsTranslationMode" style="display:none">
       <label data-i18n="translationMode">번역 모드</label>
       <div class="theme-toggle">
-        <button class="theme-btn active" data-mode-val="standard" data-i18n="standardMode">표준</button>
-        <button class="theme-btn" data-mode-val="enhanced" data-i18n="enhancedMode">고품질 (Audio)</button>
+        <button class="theme-btn active" data-mode-val="standard" data-i18n="standardMode">트랜스크립션</button>
+        <button class="theme-btn" data-mode-val="enhanced" data-i18n="enhancedMode">멀티모달</button>
       </div>
       <div id="enhancedModelGroup" style="display:none;margin-top:8px">
         <label data-i18n="enhancedModel" style="font-size:13px">번역 모델</label>
@@ -948,13 +948,13 @@ const I18N = {
     autoDetectRequiresKey: '자동 감지에는 OpenAI API Key가 필요합니다. 설정에서 입력해주세요.',
     summaryFailed: '요약 실패',
     translationMode: '번역 모드',
-    standardMode: '표준',
-    enhancedMode: '고품질 (Audio)',
+    standardMode: '트랜스크립션',
+    enhancedMode: '멀티모달',
     standardModeHint: '음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리',
-    enhancedModeHint: '음성 → 모델(원문+번역 동시 반환) · 1단계 처리 · 고품질',
+    enhancedModeHint: '음성 → Audio 모델(원문+번역 동시 반환) · 1단계 처리',
     enhancedModel: '번역 모델',
     enhancedModelCustom: '직접 입력',
-    enhancedFallback: '고품질 모드 실패, 표준 모드로 전환합니다',
+    enhancedFallback: '멀티모달 모드 실패, 트랜스크립션으로 전환합니다',
     chunkSettings: '음성 분할',
     chunkDesc: '연속 음성을 일정 단위로 잘라 번역합니다. 짧으면 빠르게, 길면 문맥을 더 잘 이해합니다.',
     timeBased: '시간 기반',
@@ -1053,13 +1053,13 @@ const I18N = {
     autoDetectRequiresKey: 'Auto-detect requires an OpenAI API Key. Please set it up in Settings.',
     summaryFailed: 'Summary failed',
     translationMode: 'Translation Mode',
-    standardMode: 'Standard',
-    enhancedMode: 'Enhanced (Audio)',
+    standardMode: 'Transcription',
+    enhancedMode: 'Multimodal',
     standardModeHint: 'Audio → Whisper (transcript) → Translation API (translate) · 2-step',
-    enhancedModeHint: 'Audio → Model (transcript + translation at once) · 1-step · high quality',
+    enhancedModeHint: 'Audio → Audio model (transcript + translation at once) · 1-step',
     enhancedModel: 'Translation Model',
     enhancedModelCustom: 'Custom',
-    enhancedFallback: 'Enhanced mode failed, falling back to standard mode',
+    enhancedFallback: 'Multimodal mode failed, falling back to transcription mode',
     chunkSettings: 'Audio Splitting',
     chunkDesc: 'Splits continuous audio into chunks for translation. Shorter = faster, longer = better context.',
     timeBased: 'Time-based',
