@@ -1,6 +1,7 @@
 # AGENTS.md
 
-이 파일은 AI 에이전트(LLM)가 이 프로젝트에서 작업할 때 따라야 하는 지침이다.
+이 파일은 Claude Code 및 AGENTS.md 호환 LLM 도구가 공통으로 읽는 **단일 지침 파일**이다.
+AI 에이전트(LLM)가 이 프로젝트에서 작업할 때 따라야 하는 지침을 정의한다.
 
 ## 프로젝트 개요
 
@@ -32,113 +33,81 @@
 
 ## 문서 기반 워크플로우
 
-이 프로젝트는 문서 기반 개발 사이클을 따른다. 작업 유형에 따라 아래 워크플로우를 수행한다.
+이 프로젝트는 문서 기반 개발 사이클을 따른다. 작업 유형에 따라 아래 두 가지 워크플로우 중 하나를 수행한다.
 
-### 워크플로우 개요
+| 구분 | 검증 루프 (기본) | 전체 라이프사이클 |
+|---|---|---|
+| **적용 시점** | 대부분의 기능 추가/개선 | 메이저 릴리즈, 아키텍처 변경 |
+| **문서 위치** | `docs/features/` | `docs/{version}/` (예: `v1/`) |
+| **핵심 문서** | `{feature}-verification-plan.md`, `{feature}-verification-result.md` | `PRD.md` → `TESTING.md` → `TESTING-REPORT.md` → `PLAN.md` |
+| **실행 주체** | 독립 서브에이전트 5개가 루프 수행 | 단일 에이전트 순차 수행 |
+| **프로토콜** | [docs/workflows/verification-loop.md](docs/workflows/verification-loop.md) | [docs/RULES.md](docs/RULES.md) §1-4 |
 
-두 가지 워크플로우가 있으며, 작업 규모에 따라 선택한다.
+문서 작성 규칙: [docs/RULES.md](docs/RULES.md)
 
-#### 경량 검증 (대부분의 기능 추가/개선)
+---
+
+### A. 검증 루프 워크플로우 (기본)
+
+피처 구현이 완료되면 **반드시 검증 루프를 실행**한다. 상세 프로토콜과 서브에이전트 프롬프트 템플릿은 [docs/workflows/verification-loop.md](docs/workflows/verification-loop.md)에 정의되어 있다.
+
+#### 핵심 원칙
+
+- **각 단계는 독립된 서브에이전트로 실행**한다. 메인 세션은 오케스트레이터 역할만 수행한다.
+- **서브에이전트 간 소통은 `docs/features/` 파일을 통해서만** 이루어진다. (컨텍스트 격리)
+- **통과 기준**: 전체 평균 ≥ 8.0 **AND** 모든 항목 ≥ 5 — 두 조건 모두 충족 시 PASS
+- **결과 파일 위치**: `docs/features/{feature}-verification-result.md`
+
+#### 5단계 루프
 
 ```
-구현 → verification-plan 작성 → 검증 → verification-result 작성
+① 플랜 에이전트   → {feature}-verification-plan.md (초안)
+② 구현 에이전트   → 코드 변경
+③ 플랜 보강 에이전트 → {feature}-verification-plan.md (보강본, 코드 위치 구체화)
+④ 검증 에이전트   → {feature}-verification-result.md (Round N 채점)
+⑤ 수정 에이전트   → 코드 수정 (FAIL 시, ④로 루프백)
 ```
 
-- 문서 위치: `docs/features/{feature-name}-verification-plan.md`
-- 템플릿: [docs/templates/verification-plan.template.md](docs/templates/verification-plan.template.md)
-- 예시: [docs/features/i18n-verification-plan.md](docs/features/i18n-verification-plan.md)
+#### 정체 감지
 
-#### 전체 라이프사이클 (메이저 릴리즈, 아키텍처 변경)
+Round 2 이상에서 평균 점수 변화가 ≤ 0.5인 경우 정체로 판단하여 사용자에게 선택지를 제시한다:
+1. 저점수 항목 직접 수정 후 검증 재실행
+2. 해당 항목 통과 기준 완화
+3. 현재 상태로 수용
+
+#### 각 단계의 오케스트레이터 행동과 프롬프트 템플릿
+
+[docs/workflows/verification-loop.md](docs/workflows/verification-loop.md)의 "오케스트레이터 행동 상세" 테이블과 "서브에이전트 프롬프트 템플릿" 섹션을 그대로 따른다. 이 AGENTS.md에서 중복 서술하지 않는다.
+
+---
+
+### B. 전체 라이프사이클 워크플로우 (메이저 변경 시만)
+
+메이저 릴리즈 또는 아키텍처 변경 시에만 사용한다. 경량 기능 추가에는 **A 워크플로우(검증 루프)를 사용**한다.
 
 ```
 PRD → 구현 → TESTING → TESTING-REPORT → PLAN → 구현 (반복)
 ```
 
 - 문서 위치: `docs/{version}/`
-- 템플릿: [docs/templates/](docs/templates/)
+- 템플릿: [docs/templates/](docs/templates/) (`PRD.template.md`, `TESTING.template.md`, `TESTING-REPORT.template.md`, `PLAN.template.md`)
 - 예시: [docs/v1/](docs/v1/)
+- 각 문서의 필수 섹션, 스코어링 기준, Severity 분류 등 상세 규칙은 [docs/RULES.md](docs/RULES.md) §1-4 참조
 
-문서 작성 규칙: [docs/RULES.md](docs/RULES.md)
+#### 단계별 요약
 
-### 작업별 지침
+| 단계 | 입력 | 작업 | 출력 |
+|---|---|---|---|
+| B-1 | `docs/{version}/PRD.md` | PRD의 기능·비기능 요구사항을 읽고 `index.html`에 구현. 제한사항을 넘지 않는다 | 소스 코드 |
+| B-2 | `TESTING.md` + 소스 코드 | 각 시나리오를 코드 레벨에서 검증. PASS/FAIL + 이슈 목록 | 검증 결과 (raw) |
+| B-3 | 검증 결과 + `PRD.md` | `TESTING-REPORT.template.md` 복사. 10점 만점 카테고리 스코어링, Severity 4단계 분류, Priority Roadmap 도출 | `TESTING-REPORT.md` |
+| B-4 | `TESTING-REPORT.md` | `PLAN.template.md` 복사. Phase 3단계(P0/P1/P2), 문제-위치-해결 구조, Out of Scope 명시 | `PLAN.md` |
+| B-5 | `PLAN.md` | Phase 순서(P0 → P1 → P2)대로 구현. 각 Phase 완료 후 검증 | 소스 코드 (개선) |
 
-#### A. 경량 검증 워크플로우
-
-##### A-1. 기능 구현 + 검증 플랜 작성
-
-1. 기존 코드의 동작을 먼저 파악한다
-2. `index.html`에 구현한다
-3. `docs/templates/verification-plan.template.md`를 `docs/features/{feature-name}-verification-plan.md`로 복사
-4. 변경 사항 요약 + 카테고리별 체크리스트 + 엣지 케이스를 작성한다
-5. 제목 형식: `# {피처명} — 검증 플랜`
-
-##### A-2. 검증 실행 + 결과 작성
-
-1. verification-plan의 체크리스트를 코드 레벨 또는 브라우저에서 검증한다
-2. 필요 시 `{feature-name}-verification-result.md`를 작성한다
-3. 결과에는 검증 기준 문서 링크, 일시, 방법, PASS/FAIL을 기록한다
-
-#### B. 전체 라이프사이클 워크플로우
-
-##### B-1. 새 기능 구현
-
-**입력**: `docs/{version}/PRD.md`
-
-1. PRD.md의 모든 기능 요구사항을 읽는다
-2. 비기능 요구사항(호환성, 반응형, 성능, 보안)을 확인한다
-3. 데이터 스키마를 확인하고 기존 `state` 객체와의 호환성을 검토한다
-4. `index.html`에 구현한다
-5. PRD의 제한사항을 넘지 않는지 확인한다
-
-**주의사항**:
-- PRD에 명시되지 않은 기능을 추가하지 않는다
+**주의사항 (A/B 공통):**
+- 요구사항에 명시되지 않은 기능을 추가하지 않는다
 - 기존 기능을 깨뜨리지 않도록 기존 코드의 동작을 먼저 파악한다
 - 새로운 외부 의존성을 추가하기 전에 정말 필요한지 검토한다
-
-##### B-2. 테스트 검증
-
-**입력**: `docs/{version}/TESTING.md` + 소스 코드
-
-1. TESTING.md의 사전 준비 항목을 확인한다
-2. 각 테스트 시나리오를 코드 레벨에서 검증한다:
-   - 해당 동작이 코드에 구현되어 있는가?
-   - 확인사항의 기대 결과가 실제로 발생하는가?
-   - 에러 핸들링이 명시대로 동작하는가?
-3. 코드를 읽으며 TESTING.md에 없는 엣지 케이스도 식별한다
-
-**출력 형식**: 각 시나리오별 PASS/FAIL + 발견 이슈 목록
-
-##### B-3. 테스트 리포트 작성
-
-**입력**: 검증 결과 + `docs/{version}/PRD.md`
-
-1. `docs/templates/TESTING-REPORT.template.md`를 복사한다
-2. [docs/RULES.md](docs/RULES.md)의 TESTING-REPORT 규칙을 따른다:
-   - 10점 만점으로 카테고리별 스코어링
-   - Severity 4단계(Critical/High/Medium/Low) 분류
-   - 이슈마다 코드 위치(Line 번호) 명시
-   - Critical/High 이슈는 문제 코드 + 수정 제안 코드 포함
-3. Priority Roadmap(P0/P1/P2)을 도출한다
-
-##### B-4. 개선 계획 수립
-
-**입력**: `docs/{version}/TESTING-REPORT.md`
-
-1. `docs/templates/PLAN.template.md`를 복사한다
-2. [docs/RULES.md](docs/RULES.md)의 PLAN 규칙을 따른다:
-   - Phase 3단계(P0/P1/P2)로 분류
-   - 각 항목에 문제-위치-해결 구조
-   - 코드 변경 예시 포함
-3. Out of Scope 항목을 이유와 함께 명시한다
-
-##### B-5. 개선 구현
-
-**입력**: `docs/{version}/PLAN.md`
-
-1. Phase 순서(P0 → P1 → P2)대로 구현한다
-2. 각 항목의 "해결" 섹션에 기술된 방법을 따른다
-3. 코드 변경 예시가 있으면 이를 기반으로 구현한다
-4. 하나의 Phase를 완료하면 해당 항목들을 검증한 뒤 다음 Phase로 진행한다
 
 ## 코드 수정 시 체크리스트
 
