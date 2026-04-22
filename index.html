@@ -1871,8 +1871,8 @@ function serializeState() {
 }
 
 function scheduleHashUpdate() {
-  // 번역 탭 전용 — 다른 탭에서는 해시 write 중단
-  if (state.activeTab !== 'translate' && !state.isReadOnly) return;
+  // 번역 탭 전용 — 다른 탭이거나 읽기 전용 모드에서는 해시 write 중단
+  if (state.activeTab !== 'translate' || state.isReadOnly) return;
   clearTimeout(hashUpdateTimer);
   hashUpdateTimer = setTimeout(() => {
     const json = JSON.stringify(serializeState());
@@ -1906,6 +1906,8 @@ function loadFromHash() {
     state.note = data.n || '';
     state.summary = data.sum || '';
     state.meetingDate = data.d || null;
+    // 해시 데이터 있으면 번역 탭 강제
+    state.activeTab = 'translate';
 
     return true;
   } catch (e) {
@@ -3263,6 +3265,11 @@ function init() {
 
   // Init UI components
   initTabs();
+  // 읽기 전용 모드였다면 initTabs()가 localStorage 탭으로 복원하므로 재적용
+  if (hasData) {
+    switchTab('translate');
+    $$('#tabBar .tab-btn').forEach(btn => { btn.disabled = true; });
+  }
   initEventListeners();
   initNotes();
   initMeeting();
