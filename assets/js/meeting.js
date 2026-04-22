@@ -75,7 +75,7 @@ function renderMeetingEntries() {
   if (state.meetingEntries.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'color:var(--text-tertiary);font-size:14px;padding:20px 0;text-align:center;';
-    empty.textContent = '회의 기록이 없습니다. REC을 눌러 시작하세요.';
+    empty.textContent = t('meetingEmptyPlaceholder');
     container.appendChild(empty);
     return;
   }

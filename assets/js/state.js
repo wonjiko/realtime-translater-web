@@ -142,6 +142,7 @@ const I18N = {
     meetingNothingToDownload: '다운로드할 회의 기록이 없습니다',
     meetingNothingToSummarize: '요약할 회의 기록이 없습니다',
     deleteNoteConfirm: '이 노트를 삭제하시겠습니까?',
+    meetingEmptyPlaceholder: '회의 기록이 없습니다. REC 버튼으로 시작하세요.',
   },
   en: {
     pageTitle: 'Real-Time Meeting Translator',
@@ -265,6 +266,7 @@ const I18N = {
     meetingNothingToDownload: 'No meeting entries to download',
     meetingNothingToSummarize: 'No meeting entries to summarize',
     deleteNoteConfirm: 'Delete this note?',
+    meetingEmptyPlaceholder: 'No meeting transcript yet. Press REC to start.',
   }
 };
 
@@ -299,6 +301,10 @@ function setLocale(locale) {
   if (!state.isReadOnly && dom.noteTextarea) {
     dom.noteTextarea.placeholder = t('notePlaceholder');
   }
+
+  // Update meeting empty placeholder if visible
+  const meetingEmpty = document.querySelector('#meetingEntries div[style*="text-align:center"]');
+  if (meetingEmpty) meetingEmpty.textContent = t('meetingEmptyPlaceholder');
 }
 
 // ============================================================
