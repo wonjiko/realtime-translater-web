@@ -1,0 +1,143 @@
+/* tabs.css — 탭 바, 탭 패널, main-split(탭 영역 + 노트 팬), 회의기록 prose */
+
+/* ============================================================
+   Tab Bar
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  height: 44px;
+}
+.tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); background: var(--bg-secondary); }
+.tab-btn.active {
+  color: var(--tab-active);
+  border-bottom-color: var(--tab-active);
+  font-weight: 700;
+}
+.tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .tab-btn:hover { background: var(--bg-tertiary); }
+
+/* ============================================================
+   Tab Panels
+   ============================================================ */
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tab-panel.active { display: flex; }
+
+/* 요약 탭 안의 summary-section은 전체 영역을 채움 */
+#tabSummary .summary-section {
+  flex: 1;
+  border-top: none;
+}
+
+/* ============================================================
+   Meeting 줄글 속기록
+   ============================================================ */
+.meeting-prose {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  padding: 4px 0;
+}
+.meeting-prose .meeting-empty {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* ============================================================
+   Main Split: 탭 영역 + 리사이저 + 노트 팬 (반응형 row/column)
+   ============================================================ */
+.main-split {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tabs-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.notes-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 320px;
+  min-width: 240px;
+  border-left: 1px solid var(--border);
+  background: var(--note-bg);
+  overflow: hidden;
+}
+.notes-pane textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.notes-pane textarea:read-only { color: var(--text-secondary); }
+.split-resizer {
+  flex: 0 0 6px;
+  background: var(--bg-tertiary);
+  cursor: col-resize;
+  transition: background 0.12s;
+}
+.split-resizer:hover { background: var(--border); }
+
+/* 좁은 뷰포트: 노트 팬을 하단으로 */
+@media (max-width: 900px) {
+  .main-split { flex-direction: column; }
+  .tabs-area { flex: 1; }
+  .notes-pane {
+    flex: 0 0 160px;
+    min-width: 0;
+    min-height: 120px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .split-resizer { cursor: row-resize; }
+}
