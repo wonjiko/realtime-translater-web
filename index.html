@@ -34,6 +34,9 @@ if (typeof LZString === 'undefined') {
   --overlay: rgba(0,0,0,0.4);
   --note-bg: #fffde7;
   --summary-bg: #f0f4ff;
+  --surface-raised: #f9f9fb;
+  --tab-active: #007aff;
+  --divider-strong: #b0b0b7;
 }
 
 [data-theme="dark"] {
@@ -56,6 +59,9 @@ if (typeof LZString === 'undefined') {
   --overlay: rgba(0,0,0,0.6);
   --note-bg: #3a3a2e;
   --summary-bg: #2a2e3a;
+  --surface-raised: #2c2c2e;
+  --tab-active: #0a84ff;
+  --divider-strong: #636366;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -619,6 +625,166 @@ body {
   padding: 0 6px;
   letter-spacing: 0.5px;
 }
+
+/* ============================================================
+   Notes Layout
+   ============================================================ */
+.notes-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.notes-list {
+  width: 200px;
+  min-width: 160px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.notes-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.note-list-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.note-list-item:hover { background: var(--bg-tertiary); }
+.note-list-item.active { background: var(--surface-raised); border-left: 3px solid var(--tab-active); }
+.note-list-item .note-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note-list-item .note-item-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.note-list-item .note-item-delete {
+  float: right;
+  border: none;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Mobile: stack notes list/editor */
+@media (max-width: 480px) {
+  .notes-layout { flex-direction: column; }
+  .notes-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
+  .notes-list.mobile-hidden { display: none; }
+  .notes-editor.mobile-hidden { display: none; }
+}
+
+/* Meeting entries */
+.meeting-entry {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--divider-strong);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.meeting-entry:last-child { border-bottom: none; }
+.meeting-entry-ts {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.meeting-entry-text { color: var(--text); }
+
+/* ============================================================
+   Tab Bar
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  height: 44px;
+}
+.tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); background: var(--bg-secondary); }
+.tab-btn.active {
+  color: var(--tab-active);
+  border-bottom-color: var(--tab-active);
+  font-weight: 700;
+}
+.tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .tab-btn:hover { background: var(--bg-tertiary); }
+
+/* Tab Panels */
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tab-panel.active { display: flex; }
+
+/* Recording badge shown in non-translate tabs */
+.recording-badge {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--red);
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255,59,48,0.1);
+  margin-left: 4px;
+  animation: badgePulse 1.2s ease-in-out infinite;
+}
+.recording-badge.visible { display: inline-block; }
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 </style>
 </head>
 <body>
@@ -650,6 +816,81 @@ body {
   <span><span data-i18n="sharedTranscript">공유된 회의록</span> <span id="meetingDate"></span> — <span data-i18n="readOnly">읽기 전용</span></span>
   <button id="btnNewSession" data-i18n="newSession">새 세션</button>
 </div>
+
+<!-- Tab Navigation -->
+<nav class="tab-bar" id="tabBar" role="tablist">
+  <button class="tab-btn" id="tabBtnMeeting" data-tab="meeting" role="tab" aria-selected="false" aria-controls="tabMeeting">
+    &#128249; <span data-i18n="tabMeeting">회의 기록</span>
+    <span class="recording-badge" id="meetingRecBadge">REC</span>
+  </button>
+  <button class="tab-btn" id="tabBtnNotes" data-tab="notes" role="tab" aria-selected="false" aria-controls="tabNotes">
+    &#128221; <span data-i18n="tabNotes">노트</span>
+  </button>
+  <button class="tab-btn active" id="tabBtnTranslate" data-tab="translate" role="tab" aria-selected="true" aria-controls="tabTranslate">
+    &#127908; <span data-i18n="tabTranslate">대화 번역</span>
+    <span class="recording-badge" id="translateRecBadge">REC</span>
+  </button>
+</nav>
+
+<!-- ======================================================
+     Tab: Meeting (회의 기록)
+     ====================================================== -->
+<section class="tab-panel" id="tabMeeting" data-tab="meeting" role="tabpanel" aria-labelledby="tabBtnMeeting" style="padding:12px 16px;gap:12px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <input type="text" id="meetingTitleInput" data-i18n-placeholder="meetingTitlePlaceholder"
+      placeholder="회의 제목 (선택)" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;">
+    <select id="meetingSourceLang" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;">
+      <option value="en-US">English</option>
+      <option value="ja-JP">Japanese</option>
+      <option value="ko-KR" selected>Korean</option>
+    </select>
+    <button class="ctrl-btn btn-rec" id="btnMeetingRec" style="padding:8px 16px;font-size:14px;">
+      &#9679; <span data-i18n="rec">REC</span>
+    </button>
+  </div>
+  <div id="meetingEntries" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;"></div>
+  <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+    <button class="ctrl-btn" id="btnMeetingSummarize" style="font-size:13px;padding:6px 12px;" disabled>
+      &#128203; <span data-i18n="summarizeMeeting">요약하기</span>
+    </button>
+    <button class="ctrl-btn" id="btnMeetingDownload" style="font-size:13px;padding:6px 12px;">
+      &#8595; <span data-i18n="downloadTxt">TXT 다운로드</span>
+    </button>
+    <button class="ctrl-btn" id="btnMeetingClear" style="font-size:13px;padding:6px 12px;">
+      &#128465; <span data-i18n="clearMeeting">클리어</span>
+    </button>
+  </div>
+  <div id="meetingSummaryArea" style="display:none;background:var(--summary-bg);border-radius:10px;padding:12px 16px;font-size:14px;line-height:1.7;overflow-y:auto;max-height:200px;white-space:pre-wrap;"></div>
+</section>
+
+<!-- ======================================================
+     Tab: Notes (노트)
+     ====================================================== -->
+<section class="tab-panel" id="tabNotes" data-tab="notes" role="tabpanel" aria-labelledby="tabBtnNotes">
+  <div class="notes-layout">
+    <aside class="notes-list" id="notesList">
+      <div class="notes-list-header">
+        <span data-i18n="notesListTitle" style="font-size:14px;font-weight:600;color:var(--text);">노트 목록</span>
+        <button id="btnNewNote" style="border:none;background:var(--accent);color:white;border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;" data-i18n="newNote">+ 새 노트</button>
+      </div>
+      <div id="notesListItems" style="flex:1;overflow-y:auto;"></div>
+    </aside>
+    <div class="notes-editor" id="notesEditor">
+      <div id="notesEmptyState" style="display:flex;align-items:center;justify-content:center;flex:1;color:var(--text-tertiary);font-size:15px;" data-i18n="notesEmpty">노트를 선택하거나 새로 만드세요</div>
+      <div id="notesEditorContent" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+        <input type="text" id="noteTitleInput" placeholder="제목" data-i18n-placeholder="noteTitlePlaceholder"
+          style="width:100%;padding:10px 16px;border:none;border-bottom:1px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;font-weight:600;outline:none;">
+        <textarea id="noteBodyTextarea" placeholder="내용을 입력하세요..." data-i18n-placeholder="noteBodyPlaceholder"
+          style="flex:1;border:none;padding:12px 16px;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7;resize:none;outline:none;font-family:inherit;"></textarea>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================
+     Tab: Translation (대화 번역) — 기존 UI
+     ====================================================== -->
+<section class="tab-panel active" id="tabTranslate" data-tab="translate" role="tabpanel" aria-labelledby="tabBtnTranslate">
 
 <!-- Language Bar -->
 <div class="lang-bar" id="langBar">
@@ -687,15 +928,6 @@ body {
 <!-- Resizer -->
 <div class="resizer" id="resizer"></div>
 
-<!-- Note Section -->
-<div class="note-section" id="noteSection" style="height: 120px;">
-  <div class="section-header" id="noteHeader">
-    <h3>&#128221; <span data-i18n="notes">메모</span></h3>
-    <button class="section-toggle" id="noteToggle" aria-label="Toggle notes section">&#9660;</button>
-  </div>
-  <textarea class="note-textarea" id="noteTextarea" data-i18n-placeholder="notePlaceholder" placeholder="회의 메모, 할 일, 기억할 내용을 적어두세요..."></textarea>
-</div>
-
 <!-- Summary Section -->
 <div class="summary-section" id="summarySection" style="height: 150px;">
   <div class="section-header" id="summaryHeader">
@@ -728,6 +960,8 @@ body {
   <button class="ctrl-btn btn-open" id="btnOpen" aria-label="Open JSON file">&#128194; <span data-i18n="open">열기</span></button>
   <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
 </div>
+
+</section>
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
@@ -978,6 +1212,24 @@ const I18N = {
     sysAudioRequiresKey: '시스템 오디오는 OpenAI API 키가 필요합니다. Settings에서 키를 설정하세요.',
     displayShareEnded: '탭 공유가 중단되었습니다. 마이크만 캡처됩니다.',
     langChangedRestart: '언어가 변경되어 녹음을 재시작합니다',
+    tabMeeting: '회의 기록',
+    tabNotes: '노트',
+    tabTranslate: '대화 번역',
+    newNote: '+ 새 노트',
+    deleteNote: '삭제',
+    untitledNote: '제목 없는 노트',
+    notesEmpty: '노트를 선택하거나 새로 만드세요',
+    notesListTitle: '노트 목록',
+    noteTitlePlaceholder: '제목',
+    noteBodyPlaceholder: '내용을 입력하세요...',
+    meetingTitlePlaceholder: '회의 제목 (선택)',
+    summarizeMeeting: '요약하기',
+    downloadTxt: 'TXT 다운로드',
+    clearMeeting: '클리어',
+    meetingClearConfirm: '회의 기록을 모두 삭제하시겠습니까?',
+    meetingNothingToDownload: '다운로드할 회의 기록이 없습니다',
+    meetingNothingToSummarize: '요약할 회의 기록이 없습니다',
+    deleteNoteConfirm: '이 노트를 삭제하시겠습니까?',
   },
   en: {
     pageTitle: 'Real-Time Meeting Translator',
@@ -1083,6 +1335,24 @@ const I18N = {
     sysAudioRequiresKey: 'System audio requires an OpenAI API key. Set it up in Settings.',
     displayShareEnded: 'Tab sharing has stopped. Only microphone audio is being captured.',
     langChangedRestart: 'Language changed — restarting recording',
+    tabMeeting: 'Meeting Notes',
+    tabNotes: 'Notes',
+    tabTranslate: 'Translation',
+    newNote: '+ New Note',
+    deleteNote: 'Delete',
+    untitledNote: 'Untitled Note',
+    notesEmpty: 'Select a note or create a new one',
+    notesListTitle: 'Notes',
+    noteTitlePlaceholder: 'Title',
+    noteBodyPlaceholder: 'Start typing...',
+    meetingTitlePlaceholder: 'Meeting title (optional)',
+    summarizeMeeting: 'Summarize',
+    downloadTxt: 'Download TXT',
+    clearMeeting: 'Clear',
+    meetingClearConfirm: 'Clear all meeting entries?',
+    meetingNothingToDownload: 'No meeting entries to download',
+    meetingNothingToSummarize: 'No meeting entries to summarize',
+    deleteNoteConfirm: 'Delete this note?',
   }
 };
 
@@ -1113,8 +1383,8 @@ function setLocale(locale) {
   const localeBtn = $('#btnLocale');
   if (localeBtn) localeBtn.textContent = locale === 'ko' ? 'EN' : 'KO';
 
-  // Update note placeholder for readonly mode
-  if (!state.isReadOnly) {
+  // Update note placeholder for readonly mode (null-guard: note textarea 탭으로 승격됨)
+  if (!state.isReadOnly && dom.noteTextarea) {
     dom.noteTextarea.placeholder = t('notePlaceholder');
   }
 }
@@ -1134,6 +1404,15 @@ const state = {
   summaryEntryCount: 0,
   useWhisper: false,
   useSystemAudio: localStorage.getItem('rt_use_sys_audio') === 'true',
+  // Tab state (NEW)
+  activeTab: localStorage.getItem('rt_active_tab') || 'translate',
+  recordingSurface: 'translate', // 'translate' | 'meeting'
+  // Meeting tab (NEW)
+  meetingEntries: [],
+  meetingTitle: '',
+  // Notes tab (NEW)
+  notes: [],
+  activeNoteId: null,
 };
 
 // ============================================================
@@ -1145,7 +1424,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const dom = {
   transcriptArea: $('#transcriptArea'),
   emptyState: $('#emptyState'),
-  noteTextarea: $('#noteTextarea'),
+  noteTextarea: null, // 노트 탭으로 승격 — renderNote()에서 안전하게 처리
   summaryContent: $('#summaryContent'),
   summaryDisabled: $('#summaryDisabled'),
   btnRec: $('#btnRec'),
@@ -1164,17 +1443,59 @@ const dom = {
   readonlyBanner: $('#readonlyBanner'),
   browserWarning: $('#browserWarning'),
   sourceLang: $('#sourceLang'),
-  noteSection: $('#noteSection'),
+  noteSection: null, // 탭으로 승격
   summarySection: $('#summarySection'),
-  noteToggle: $('#noteToggle'),
+  noteToggle: null,  // 탭으로 승격
   summaryToggle: $('#summaryToggle'),
-  noteHeader: $('#noteHeader'),
+  noteHeader: null,  // 탭으로 승격
   summaryHeader: $('#summaryHeader'),
   resizer: $('#resizer'),
   langBar: $('#langBar'),
   controlBar: $('#controlBar'),
   toastContainer: $('#toastContainer'),
 };
+
+// ============================================================
+// 3b. Tab Management
+// ============================================================
+function switchTab(tab) {
+  const validTabs = ['meeting', 'notes', 'translate'];
+  if (!validTabs.includes(tab)) tab = 'translate';
+  state.activeTab = tab;
+  try { localStorage.setItem('rt_active_tab', tab); } catch(e) { /* quota */ }
+
+  // Update panels
+  $$('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.tab === tab);
+  });
+  // Update buttons
+  $$('.tab-btn').forEach(btn => {
+    const isActive = btn.dataset.tab === tab;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  // Show/hide recording badge on non-translate tabs
+  updateRecordingBadges();
+}
+
+function updateRecordingBadges() {
+  const meetingBadge = $('#meetingRecBadge');
+  const translateBadge = $('#translateRecBadge');
+  if (meetingBadge) meetingBadge.classList.toggle('visible', state.isRecording && state.recordingSurface === 'meeting' && state.activeTab !== 'meeting');
+  if (translateBadge) translateBadge.classList.toggle('visible', state.isRecording && state.recordingSurface === 'translate' && state.activeTab !== 'translate');
+}
+
+function initTabs() {
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      switchTab(btn.dataset.tab);
+    });
+  });
+  // Restore last active tab
+  const savedTab = localStorage.getItem('rt_active_tab') || 'translate';
+  switchTab(savedTab);
+}
 
 // ============================================================
 // 4. Settings (localStorage)
@@ -2207,6 +2528,7 @@ async function startRecording() {
 
   if (!validateBeforeRecording()) return;
 
+  state.recordingSurface = 'translate'; // translate 탭 전용
   state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
   let micStreamRef = null;
@@ -2298,6 +2620,7 @@ function stopRecording() {
   interimTranslateAbort = true;
   removeInterimEntry();
   removeInterim();
+  updateRecordingBadges();
 }
 
 // ============================================================
@@ -2322,6 +2645,8 @@ function serializeState() {
 }
 
 function scheduleHashUpdate() {
+  // 번역 탭 전용 — 다른 탭에서는 해시 write 중단
+  if (state.activeTab !== 'translate' && !state.isReadOnly) return;
   clearTimeout(hashUpdateTimer);
   hashUpdateTimer = setTimeout(() => {
     const json = JSON.stringify(serializeState());
@@ -2507,7 +2832,7 @@ function renderAllEntries() {
 }
 
 function renderNote() {
-  dom.noteTextarea.value = state.note;
+  if (dom.noteTextarea) dom.noteTextarea.value = state.note;
 }
 
 function renderSummary() {
@@ -2576,17 +2901,26 @@ function setReadOnlyMode(readOnly) {
   dom.btnRec.style.display = readOnly ? 'none' : '';
   dom.btnSysAudio.style.display = readOnly ? 'none' : '';
   dom.btnShare.style.display = readOnly ? 'none' : '';
-  dom.noteTextarea.readOnly = readOnly;
+  if (dom.noteTextarea) {
+    dom.noteTextarea.readOnly = readOnly;
+    if (readOnly) {
+      dom.noteTextarea.placeholder = '';
+    } else {
+      dom.noteTextarea.placeholder = t('notePlaceholder');
+    }
+  }
+  // Show meeting date in readonly banner if available
   if (readOnly) {
-    dom.noteTextarea.placeholder = '';
-    // Show meeting date if available
     const dateEl = $('#meetingDate');
     if (dateEl && state.meetingDate) {
       const d = new Date(state.meetingDate * 1000);
       dateEl.textContent = '(' + d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) + ')';
     }
-  } else {
-    dom.noteTextarea.placeholder = t('notePlaceholder');
+  }
+  // Tab bar disabled in readonly mode
+  $$('#tabBar .tab-btn').forEach(btn => { btn.disabled = readOnly; });
+  if (readOnly) {
+    switchTab('translate');
   }
 }
 
@@ -2765,12 +3099,14 @@ function saveCurrentSettings() {
 function initResizer() {
   let startY, startHeight;
   const resizer = dom.resizer;
-  const noteSection = dom.noteSection;
+  const targetSection = dom.summarySection; // Note section 승격 — summary로 리사이징
+
+  if (!resizer || !targetSection) return;
 
   function onMouseDown(e) {
     e.preventDefault();
     startY = e.clientY || e.touches?.[0]?.clientY;
-    startHeight = noteSection.offsetHeight;
+    startHeight = targetSection.offsetHeight;
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('touchmove', onMouseMove, { passive: false });
@@ -2782,7 +3118,7 @@ function initResizer() {
     const clientY = e.clientY || e.touches?.[0]?.clientY;
     const delta = startY - clientY;
     const newHeight = Math.max(60, Math.min(400, startHeight + delta));
-    noteSection.style.height = newHeight + 'px';
+    targetSection.style.height = newHeight + 'px';
   }
 
   function onMouseUp() {
@@ -2797,31 +3133,480 @@ function initResizer() {
 }
 
 // ============================================================
+// 13b. Notes Tab Logic
+// ============================================================
+let noteSaveTimer = null;
+
+function initNotes() {
+  // Load from localStorage
+  try {
+    const raw = localStorage.getItem('rt_notes_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state.notes = Array.isArray(parsed.notes) ? parsed.notes : [];
+      state.activeNoteId = parsed.activeNoteId || null;
+    }
+  } catch(e) { state.notes = []; state.activeNoteId = null; }
+
+  // Migrate legacy state.note
+  if (state.notes.length === 0 && state.note) {
+    const migratedNote = {
+      id: 'note_' + Date.now(),
+      title: t('untitledNote') || '이전 메모',
+      body: state.note,
+      updatedAt: Date.now(),
+    };
+    state.notes = [migratedNote];
+    state.activeNoteId = migratedNote.id;
+    saveNotes();
+  }
+
+  renderNotesList();
+  if (state.activeNoteId) {
+    selectNote(state.activeNoteId);
+  }
+
+  // Event listeners
+  const btnNewNote = $('#btnNewNote');
+  if (btnNewNote) {
+    btnNewNote.addEventListener('click', createNote);
+  }
+  const noteTitleInput = $('#noteTitleInput');
+  if (noteTitleInput) {
+    noteTitleInput.addEventListener('input', () => {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note) return;
+      note.title = noteTitleInput.value;
+      note.updatedAt = Date.now();
+      // Update list item title
+      const listItem = document.querySelector(`.note-list-item[data-note-id="${note.id}"] .note-item-title`);
+      if (listItem) listItem.textContent = note.title || t('untitledNote');
+      saveNotesDebounced();
+    });
+  }
+  const noteBodyTextarea = $('#noteBodyTextarea');
+  if (noteBodyTextarea) {
+    noteBodyTextarea.addEventListener('input', () => {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note) return;
+      note.body = noteBodyTextarea.value;
+      note.updatedAt = Date.now();
+      saveNotesDebounced();
+    });
+  }
+
+  // Mobile: back button (toggle list/editor)
+  const notesLayout = $('.notes-layout');
+  const notesList = $('#notesList');
+  const notesEditor = $('#notesEditor');
+  if (notesLayout && notesList && notesEditor) {
+    // On mobile, clicking a note hides the list
+    notesList.addEventListener('click', (e) => {
+      if (window.innerWidth <= 480 && e.target.closest('.note-list-item')) {
+        notesList.classList.add('mobile-hidden');
+        notesEditor.classList.remove('mobile-hidden');
+      }
+    });
+  }
+}
+
+function saveNotes() {
+  try {
+    localStorage.setItem('rt_notes_v1', JSON.stringify({
+      notes: state.notes,
+      activeNoteId: state.activeNoteId,
+    }));
+  } catch(e) { /* quota */ }
+}
+
+function saveNotesDebounced() {
+  clearTimeout(noteSaveTimer);
+  noteSaveTimer = setTimeout(saveNotes, 500);
+}
+
+function renderNotesList() {
+  const listEl = $('#notesListItems');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  if (state.notes.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:16px 12px;color:var(--text-tertiary);font-size:13px;';
+    empty.textContent = t('notesEmpty');
+    listEl.appendChild(empty);
+    return;
+  }
+  // Sort by updatedAt desc
+  const sorted = [...state.notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  sorted.forEach(note => {
+    const item = document.createElement('div');
+    item.className = 'note-list-item';
+    item.dataset.noteId = note.id;
+    if (note.id === state.activeNoteId) item.classList.add('active');
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'note-item-title';
+    titleEl.textContent = note.title || t('untitledNote');
+
+    const dateEl = document.createElement('div');
+    dateEl.className = 'note-item-date';
+    dateEl.textContent = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'note-item-delete';
+    deleteBtn.textContent = '×';
+    deleteBtn.title = t('deleteNote');
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(t('deleteNoteConfirm'))) {
+        deleteNote(note.id);
+      }
+    });
+
+    item.appendChild(deleteBtn);
+    item.appendChild(titleEl);
+    item.appendChild(dateEl);
+    item.addEventListener('click', () => selectNote(note.id));
+    listEl.appendChild(item);
+  });
+}
+
+function selectNote(id) {
+  state.activeNoteId = id;
+  const note = state.notes.find(n => n.id === id);
+
+  // Update list highlight
+  $$('.note-list-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.noteId === id);
+  });
+
+  const emptyState = $('#notesEmptyState');
+  const editorContent = $('#notesEditorContent');
+  const titleInput = $('#noteTitleInput');
+  const bodyTextarea = $('#noteBodyTextarea');
+
+  if (!note) {
+    if (emptyState) emptyState.style.display = '';
+    if (editorContent) editorContent.style.display = 'none';
+    return;
+  }
+  if (emptyState) emptyState.style.display = 'none';
+  if (editorContent) editorContent.style.display = 'flex';
+  if (titleInput) titleInput.value = note.title || '';
+  if (bodyTextarea) bodyTextarea.value = note.body || '';
+
+  saveNotes();
+}
+
+function createNote() {
+  const note = {
+    id: 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    title: '',
+    body: '',
+    updatedAt: Date.now(),
+  };
+  state.notes.unshift(note);
+  saveNotes();
+  renderNotesList();
+  selectNote(note.id);
+
+  // Mobile: show editor
+  const notesList = $('#notesList');
+  const notesEditor = $('#notesEditor');
+  if (window.innerWidth <= 480 && notesList && notesEditor) {
+    notesList.classList.add('mobile-hidden');
+    notesEditor.classList.remove('mobile-hidden');
+  }
+  // Focus title
+  const titleInput = $('#noteTitleInput');
+  if (titleInput) titleInput.focus();
+}
+
+function deleteNote(id) {
+  const idx = state.notes.findIndex(n => n.id === id);
+  if (idx === -1) return;
+  state.notes.splice(idx, 1);
+  if (state.activeNoteId === id) {
+    state.activeNoteId = state.notes[0]?.id || null;
+  }
+  saveNotes();
+  renderNotesList();
+  selectNote(state.activeNoteId);
+}
+
+// ============================================================
+// 13c. Meeting Tab Logic
+// ============================================================
+let meetingRecognition = null;
+let meetingRecognitionRestarting = false;
+
+function initMeeting() {
+  // Load from localStorage
+  try {
+    const raw = localStorage.getItem('rt_meeting_entries_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state.meetingEntries = Array.isArray(parsed.entries) ? parsed.entries : [];
+      state.meetingTitle = parsed.title || '';
+    }
+  } catch(e) { state.meetingEntries = []; state.meetingTitle = ''; }
+
+  // Restore title input
+  const titleInput = $('#meetingTitleInput');
+  if (titleInput && state.meetingTitle) titleInput.value = state.meetingTitle;
+
+  // Render existing entries
+  renderMeetingEntries();
+
+  // Update summarize button state
+  updateMeetingSummarizeBtn();
+
+  // Event listeners
+  const btnMeetingRec = $('#btnMeetingRec');
+  if (btnMeetingRec) {
+    btnMeetingRec.addEventListener('click', () => {
+      if (state.isRecording && state.recordingSurface === 'meeting') {
+        stopMeetingRecording();
+      } else if (!state.isRecording) {
+        startMeetingRecording();
+      }
+    });
+  }
+  if (titleInput) {
+    titleInput.addEventListener('input', () => {
+      state.meetingTitle = titleInput.value;
+      saveMeetingEntries();
+    });
+  }
+  const btnDownload = $('#btnMeetingDownload');
+  if (btnDownload) btnDownload.addEventListener('click', downloadMeetingTxt);
+  const btnClear = $('#btnMeetingClear');
+  if (btnClear) btnClear.addEventListener('click', clearMeeting);
+  const btnSummarize = $('#btnMeetingSummarize');
+  if (btnSummarize) btnSummarize.addEventListener('click', summarizeMeeting);
+}
+
+function saveMeetingEntries() {
+  try {
+    localStorage.setItem('rt_meeting_entries_v1', JSON.stringify({
+      entries: state.meetingEntries,
+      title: state.meetingTitle,
+    }));
+  } catch(e) { /* quota */ }
+}
+
+function formatMeetingTs(ts) {
+  const d = new Date(ts);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return h + ':' + m + ':' + s;
+}
+
+function renderMeetingEntries() {
+  const container = $('#meetingEntries');
+  if (!container) return;
+  container.innerHTML = '';
+  if (state.meetingEntries.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--text-tertiary);font-size:14px;padding:20px 0;text-align:center;';
+    empty.textContent = '회의 기록이 없습니다. REC을 눌러 시작하세요.';
+    container.appendChild(empty);
+    return;
+  }
+  state.meetingEntries.forEach(entry => {
+    appendMeetingEntryDom(entry);
+  });
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendMeetingEntryDom(entry) {
+  const container = $('#meetingEntries');
+  if (!container) return;
+  // Remove empty placeholder if present
+  const empty = container.querySelector('div[style*="text-align:center"]');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'meeting-entry';
+
+  const tsSpan = document.createElement('span');
+  tsSpan.className = 'meeting-entry-ts';
+  tsSpan.textContent = formatMeetingTs(entry.ts);
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'meeting-entry-text';
+  textSpan.textContent = entry.text;
+
+  div.appendChild(tsSpan);
+  div.appendChild(textSpan);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateMeetingSummarizeBtn() {
+  const btn = $('#btnMeetingSummarize');
+  if (!btn) return;
+  const translator = getTranslator();
+  btn.disabled = !translator.supportsLLMFeatures || state.meetingEntries.length === 0;
+}
+
+function startMeetingRecording() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast(t('browserWarning'), 'error');
+    return;
+  }
+  if (state.isRecording) return;
+
+  const sourceLangEl = $('#meetingSourceLang');
+  const lang = sourceLangEl ? sourceLangEl.value : 'ko-KR';
+
+  meetingRecognition = new SpeechRecognition();
+  meetingRecognition.continuous = true;
+  meetingRecognition.interimResults = false;
+  meetingRecognition.lang = lang;
+
+  meetingRecognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        const text = event.results[i][0].transcript.trim();
+        if (text && state.recordingSurface === 'meeting') {
+          const entry = { ts: Date.now(), text, lang };
+          state.meetingEntries.push(entry);
+          appendMeetingEntryDom(entry);
+          saveMeetingEntries();
+          updateMeetingSummarizeBtn();
+        }
+      }
+    }
+  };
+
+  meetingRecognition.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    showToast(t('micError') + ': ' + e.error, 'error');
+  };
+
+  meetingRecognition.onend = () => {
+    meetingRecognitionRestarting = false;
+    if (state.isRecording && state.recordingSurface === 'meeting') {
+      meetingRecognitionRestarting = true;
+      setTimeout(() => {
+        if (state.isRecording && state.recordingSurface === 'meeting') {
+          try { meetingRecognition.start(); } catch(e) { /* ignore */ }
+        }
+        meetingRecognitionRestarting = false;
+      }, 300);
+    }
+  };
+
+  state.isRecording = true;
+  state.recordingSurface = 'meeting';
+  meetingRecognition.start();
+
+  const btnMeetingRec = $('#btnMeetingRec');
+  if (btnMeetingRec) {
+    btnMeetingRec.classList.add('recording');
+    const span = btnMeetingRec.querySelector('span[data-i18n]');
+    if (span) span.textContent = t('stop');
+  }
+  updateRecordingBadges();
+}
+
+function stopMeetingRecording() {
+  state.isRecording = false;
+  if (meetingRecognition) {
+    try { meetingRecognition.abort(); } catch(e) { /* ignore */ }
+    meetingRecognition = null;
+  }
+
+  const btnMeetingRec = $('#btnMeetingRec');
+  if (btnMeetingRec) {
+    btnMeetingRec.classList.remove('recording');
+    const span = btnMeetingRec.querySelector('span[data-i18n]');
+    if (span) span.textContent = t('rec');
+  }
+  updateRecordingBadges();
+}
+
+function downloadMeetingTxt() {
+  if (state.meetingEntries.length === 0) {
+    showToast(t('meetingNothingToDownload'), 'error');
+    return;
+  }
+  const title = state.meetingTitle || 'meeting';
+  const lines = state.meetingEntries.map(e => formatMeetingTs(e.ts) + '  ' + e.text);
+  if (title) lines.unshift('# ' + title + '\n');
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'meeting-' + new Date().toISOString().slice(0, 10) + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(t('downloaded'), 'success');
+}
+
+function clearMeeting() {
+  if (!confirm(t('meetingClearConfirm'))) return;
+  state.meetingEntries = [];
+  saveMeetingEntries();
+  renderMeetingEntries();
+  updateMeetingSummarizeBtn();
+  const summaryArea = $('#meetingSummaryArea');
+  if (summaryArea) summaryArea.style.display = 'none';
+}
+
+async function summarizeMeeting() {
+  const translator = getTranslator();
+  if (!translator.supportsLLMFeatures || !translator.summarize) {
+    showToast(t('summaryRequiresLLM'), 'error');
+    return;
+  }
+  if (state.meetingEntries.length === 0) {
+    showToast(t('meetingNothingToSummarize'), 'error');
+    return;
+  }
+  const summaryArea = $('#meetingSummaryArea');
+  if (summaryArea) {
+    summaryArea.style.display = '';
+    summaryArea.textContent = t('loading') || '요약 중...';
+  }
+  try {
+    // Build transcript-like array for the existing summarize API
+    const transcriptArr = state.meetingEntries.map(e => ({ s: 'ko', o: e.text, tr: {} }));
+    const result = await translator.summarize(transcriptArr);
+    if (summaryArea) summaryArea.textContent = result;
+  } catch(e) {
+    if (summaryArea) summaryArea.textContent = '';
+    showToast(t('summaryFailed') + ': ' + e.message, 'error');
+  }
+}
+
+// ============================================================
 // 14. Section Toggle (collapse/expand)
 // ============================================================
 function initSectionToggles() {
   function toggleSection(section, toggleBtn) {
+    if (!section || !toggleBtn) return;
     const isCollapsed = section.classList.toggle('collapsed');
     toggleBtn.innerHTML = isCollapsed ? '&#9650;' : '&#9660;';
     if (isCollapsed) {
       section.dataset.prevHeight = section.style.height;
-      // Keep header visible
     } else {
       section.style.height = section.dataset.prevHeight || '120px';
     }
   }
 
-  dom.noteHeader.addEventListener('click', (e) => {
-    if (e.target.closest('.section-header-actions')) return;
-    toggleSection(dom.noteSection, dom.noteToggle);
-  });
-  dom.noteToggle.addEventListener('click', () => toggleSection(dom.noteSection, dom.noteToggle));
-
-  dom.summaryHeader.addEventListener('click', (e) => {
-    if (e.target.closest('.section-header-actions')) return;
-    toggleSection(dom.summarySection, dom.summaryToggle);
-  });
-  dom.summaryToggle.addEventListener('click', () => toggleSection(dom.summarySection, dom.summaryToggle));
+  // Note section is now the Notes tab (승격됨) — skip
+  if (dom.summaryHeader) {
+    dom.summaryHeader.addEventListener('click', (e) => {
+      if (e.target.closest('.section-header-actions')) return;
+      toggleSection(dom.summarySection, dom.summaryToggle);
+    });
+  }
+  if (dom.summaryToggle) {
+    dom.summaryToggle.addEventListener('click', () => toggleSection(dom.summarySection, dom.summaryToggle));
+  }
 }
 
 // ============================================================
@@ -3004,11 +3789,13 @@ function initEventListeners() {
     });
   });
 
-  // Note textarea
-  dom.noteTextarea.addEventListener('input', () => {
-    state.note = dom.noteTextarea.value;
-    scheduleHashUpdate();
-  });
+  // Note textarea (레거시 — 노트 탭으로 승격됨, 하위호환을 위해 null-guard)
+  if (dom.noteTextarea) {
+    dom.noteTextarea.addEventListener('input', () => {
+      state.note = dom.noteTextarea.value;
+      scheduleHashUpdate();
+    });
+  }
 
   // Settings modal
   dom.btnSettings.addEventListener('click', () => {
@@ -3249,7 +4036,10 @@ function init() {
   }
 
   // Init UI components
+  initTabs();
   initEventListeners();
+  initNotes();
+  initMeeting();
   updateSysAudioToggle();
   initResizer();
   initSectionToggles();
