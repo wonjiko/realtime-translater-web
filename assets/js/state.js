@@ -281,6 +281,11 @@ function t(key) {
 function setLocale(locale) {
   currentLocale = locale;
   localStorage.setItem('rt_locale', locale);
+  // 번역 대상 언어는 UI 로케일(en/ko)을 자동 추종
+  if (state && typeof state === 'object') {
+    state.targetLangs = [locale];
+    try { localStorage.setItem('rt_target_langs', JSON.stringify(state.targetLangs)); } catch(e) { /* quota */ }
+  }
   document.documentElement.lang = locale;
   document.title = t('pageTitle');
 
@@ -304,9 +309,8 @@ function setLocale(locale) {
     dom.noteTextarea.placeholder = t('notePlaceholder');
   }
 
-  // Update meeting empty placeholder if visible
-  const meetingEmpty = document.querySelector('#meetingEntries .meeting-empty');
-  if (meetingEmpty) meetingEmpty.textContent = t('meetingEmptyPlaceholder');
+  // Re-render 회의록 속기록: placeholder도 갱신되고 번역된 텍스트가 새 로케일 기준으로 바뀜
+  if (typeof renderMeetingProse === 'function') renderMeetingProse();
 }
 
 // ============================================================
@@ -321,7 +325,7 @@ const state = {
   isRecording: false,
   isReadOnly: false,
   sourceLang: localStorage.getItem('rt_source_lang') || 'ko-KR',
-  targetLangs: safeParseJSON(localStorage.getItem('rt_target_langs'), null) || ['en', 'ja'],
+  targetLangs: [currentLocale],
   entries: [],
   interimText: '',
   note: '',

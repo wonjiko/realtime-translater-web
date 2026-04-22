@@ -60,7 +60,7 @@ const translators = {
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: `You are a professional translator. Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.`
+            content: PROMPTS.translate({ from, to }).instruction
           }, {
             role: 'user',
             content: text
@@ -94,13 +94,7 @@ const translators = {
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: `You are a meeting assistant. Summarize the following meeting transcript.
-Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
-## Key Topics
-## Decisions
-## Action Items
-
-Keep it concise. Use bullet points.`
+            content: PROMPTS.summarize().instruction
           }, {
             role: 'user',
             content: text
@@ -135,7 +129,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 1000,
           messages: [{
             role: 'user',
-            content: `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.\n\n${text}`
+            content: `${PROMPTS.translate({ from, to }).instruction}\n\n${text}`
           }],
         }),
       }, 15000);
@@ -167,15 +161,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 2000,
           messages: [{
             role: 'user',
-            content: `Summarize the following meeting transcript. Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
-## Key Topics
-## Decisions
-## Action Items
-
-Keep it concise. Use bullet points.
-
-Transcript:
-${text}`
+            content: `${PROMPTS.summarize().instruction}\n\n${text}`
           }],
         }),
       }, 30000);
@@ -300,6 +286,7 @@ function initSpeechRecognition() {
           scheduleHashUpdate();
           translateEntry(entry).then(() => {
             updateEntryTranslations(idx, entry);
+            renderMeetingProse();
             scheduleHashUpdate();
             checkAutoSummary();
           });
@@ -800,7 +787,7 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
       model: settings.enhancedModel || 'gpt-4o-audio-preview',
       messages: [{
         role: 'system',
-        content: `You are a professional meeting transcriber and translator. Listen to the audio and respond with ONLY valid JSON (no markdown): {"text": "<original transcription>", "lang": "<detected language code: en, ja, or ko>", "translations": {"<target_lang_code>": "<translation>"}}\nTarget languages: ${targets}. Translate to all requested target languages.`
+        content: PROMPTS.enhancedAudio({ targetLangNames: targets }).instruction
       }, {
         role: 'user',
         content: [{
@@ -897,6 +884,7 @@ function handleWhisperResult(data) {
 
   translateEntry(entry).then(() => {
     updateEntryTranslations(idx, entry);
+    renderMeetingProse();
     scheduleHashUpdate();
     checkAutoSummary();
   });
@@ -1465,7 +1453,7 @@ function openJsonFile(file) {
         if (slEntry) state.sourceLang = slEntry[0];
       }
 
-      state.targetLangs = data.tl || ['en', 'ja'];
+      state.targetLangs = data.tl || [currentLocale];
       state.entries = data.t || [];
       state.note = data.n || '';
       state.summary = data.sum || '';
@@ -1476,11 +1464,8 @@ function openJsonFile(file) {
       renderNote();
       renderSummary();
 
-      // Sync UI
+      // Sync UI (타겟 언어는 UI 로케일 자동 추종이라 체크박스 sync 불필요)
       dom.sourceLang.value = state.sourceLang === 'auto' ? 'auto' : state.sourceLang;
-      $$('.target-langs input[type="checkbox"]').forEach(cb => {
-        cb.checked = state.targetLangs.includes(cb.value);
-      });
 
       showToast(t('fileLoaded'), 'success');
     } catch (err) {

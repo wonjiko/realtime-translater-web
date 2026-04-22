@@ -152,7 +152,6 @@ function updateWhisperAvailability() {
     if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
     dom.sourceLang.value = state.sourceLang;
     localStorage.setItem('rt_source_lang', state.sourceLang);
-    updateTargetCheckboxes();
   }
 }
 
@@ -350,15 +349,6 @@ function initEventListeners() {
       stopRecording();
       startRecording();
     }
-    updateTargetCheckboxes();
-  });
-
-  // Target language checkboxes
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-      localStorage.setItem('rt_target_langs', JSON.stringify(state.targetLangs));
-    });
   });
 
   // Note textarea (레거시 — 노트 탭으로 승격됨, 하위호환을 위해 null-guard)
@@ -521,24 +511,6 @@ function initEventListeners() {
   dom.btnRefreshSummary.addEventListener('click', refreshSummary);
 }
 
-function updateTargetCheckboxes() {
-  if (state.sourceLang === 'auto') {
-    $$('.target-langs input[type="checkbox"]').forEach(cb => { cb.disabled = false; });
-    state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-    return;
-  }
-  const sourceCode = LANG_MAP[state.sourceLang].code;
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    if (cb.value === sourceCode) {
-      cb.checked = false;
-      cb.disabled = true;
-    } else {
-      cb.disabled = false;
-    }
-  });
-  state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-}
-
 // ============================================================
 // 17. Initialization
 // ============================================================
@@ -546,12 +518,8 @@ function init() {
   // Apply locale
   setLocale(currentLocale);
 
-  // Restore source language & target languages from preferences
+  // Restore source language from preferences (target langs follow UI locale)
   dom.sourceLang.value = state.sourceLang;
-  // Sync target checkboxes with saved state
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    cb.checked = state.targetLangs.includes(cb.value);
-  });
 
   // Check for speech recognition support (don't create instance yet — defer to first REC press)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -592,7 +560,7 @@ function init() {
               const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
               if (slEntry) state.sourceLang = slEntry[0];
             }
-            state.targetLangs = data.tl || ['en', 'ja'];
+            state.targetLangs = data.tl || [currentLocale];
             state.entries = data.t || [];
             state.note = data.n || '';
             state.summary = data.sum || '';
@@ -604,7 +572,6 @@ function init() {
     }
     setReadOnlyMode(false);
     renderSummary();
-    updateTargetCheckboxes();
   }
 
   // Init UI components
