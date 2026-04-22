@@ -36,6 +36,27 @@ function initTabs() {
       switchTab(btn.dataset.tab);
     });
   });
+
+  // Keyboard navigation (WAI-ARIA tablist pattern)
+  const tabBar = $('#tabBar');
+  if (tabBar) {
+    tabBar.addEventListener('keydown', (e) => {
+      const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+      if (!keys.includes(e.key)) return;
+      const btns = Array.from(tabBar.querySelectorAll('.tab-btn:not(:disabled)'));
+      if (btns.length === 0) return;
+      const current = btns.indexOf(document.activeElement);
+      let next;
+      if (e.key === 'ArrowLeft') next = current <= 0 ? btns.length - 1 : current - 1;
+      else if (e.key === 'ArrowRight') next = current === btns.length - 1 ? 0 : current + 1;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = btns.length - 1;
+      btns[next].focus();
+      btns[next].click();
+      e.preventDefault();
+    });
+  }
+
   // Restore last active tab
   const savedTab = localStorage.getItem('rt_active_tab') || 'translate';
   switchTab(savedTab);
