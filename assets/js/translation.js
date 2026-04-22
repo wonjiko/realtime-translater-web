@@ -81,9 +81,10 @@ const translators = {
     async summarize(transcript) {
       const settings = getSettings();
       if (!settings.openaiKey) throw new Error('OpenAI API key not configured');
-      const text = transcript.map(e =>
-        `[${LANG_NAMES[e.s]}] ${e.o}`
-      ).join('\n');
+      const text = transcript.map(e => {
+        const preferred = e.tr && e.tr[currentLocale] ? e.tr[currentLocale] : e.o;
+        return `[${LANG_NAMES[e.s]}] ${preferred}`;
+      }).join('\n');
       const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -94,7 +95,7 @@ const translators = {
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: PROMPTS.summarize().instruction
+            content: PROMPTS.summarize({ locale: currentLocale }).instruction
           }, {
             role: 'user',
             content: text
@@ -145,9 +146,10 @@ const translators = {
     async summarize(transcript) {
       const settings = getSettings();
       if (!settings.anthropicKey) throw new Error('Anthropic API key not configured');
-      const text = transcript.map(e =>
-        `[${LANG_NAMES[e.s]}] ${e.o}`
-      ).join('\n');
+      const text = transcript.map(e => {
+        const preferred = e.tr && e.tr[currentLocale] ? e.tr[currentLocale] : e.o;
+        return `[${LANG_NAMES[e.s]}] ${preferred}`;
+      }).join('\n');
       const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -161,7 +163,7 @@ const translators = {
           max_tokens: 2000,
           messages: [{
             role: 'user',
-            content: `${PROMPTS.summarize().instruction}\n\n${text}`
+            content: `${PROMPTS.summarize({ locale: currentLocale }).instruction}\n\n${text}`
           }],
         }),
       }, 30000);
