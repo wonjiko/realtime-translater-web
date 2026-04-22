@@ -1,0 +1,162 @@
+/* tabs.css — 탭 바, 탭 패널, 노트 레이아웃, 회의 엔트리
+   index.html <style>에서 이전됨 (단계 6-2) */
+
+/* ============================================================
+   Notes Layout
+   ============================================================ */
+.notes-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.notes-list {
+  width: 200px;
+  min-width: 160px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.notes-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.note-list-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.note-list-item:hover { background: var(--bg-tertiary); }
+.note-list-item.active { background: var(--surface-raised); border-left: 3px solid var(--tab-active); }
+.note-list-item .note-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note-list-item .note-item-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.note-list-item .note-item-delete {
+  float: right;
+  border: none;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Mobile: stack notes list/editor */
+@media (max-width: 480px) {
+  .notes-layout { flex-direction: column; }
+  .notes-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 160px; }
+  .notes-list.mobile-hidden { display: none; }
+  .notes-editor.mobile-hidden { display: none; }
+}
+
+/* Meeting entries */
+.meeting-entry {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--divider-strong);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.meeting-entry:last-child { border-bottom: none; }
+.meeting-entry-ts {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.meeting-entry-text { color: var(--text); }
+
+/* ============================================================
+   Tab Bar
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  height: 44px;
+}
+.tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); background: var(--bg-secondary); }
+.tab-btn.active {
+  color: var(--tab-active);
+  border-bottom-color: var(--tab-active);
+  font-weight: 700;
+}
+.tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .tab-btn:hover { background: var(--bg-tertiary); }
+
+/* Tab Panels */
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tab-panel.active { display: flex; }
+
+/* Recording badge shown in non-translate tabs */
+.recording-badge {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--red);
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255,59,48,0.1);
+  margin-left: 4px;
+  animation: badgePulse 1.2s ease-in-out infinite;
+}
+.recording-badge.visible { display: inline-block; }
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
