@@ -296,6 +296,7 @@ function initSpeechRecognition() {
           const idx = state.entries.length - 1;
           state.interimText = '';
           renderEntry(entry, idx);
+          appendMeetingProse(entry);
           scheduleHashUpdate();
           translateEntry(entry).then(() => {
             updateEntryTranslations(idx, entry);
@@ -854,6 +855,7 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
   removeInterim();
   renderEntry(entry, idx);
   updateEntryTranslations(idx, entry);
+  appendMeetingProse(entry);
   scheduleHashUpdate();
   checkAutoSummary();
 
@@ -885,6 +887,7 @@ function handleWhisperResult(data) {
   state.interimText = '';
   removeInterim();
   renderEntry(entry, idx);
+  appendMeetingProse(entry);
   scheduleHashUpdate();
 
   if (!detectedLang) {
@@ -915,13 +918,8 @@ function updateSysAudioToggle() {
 function validateBeforeRecording() {
   const settings = getSettings();
 
-  // 시스템 오디오 → OpenAI 키 필수 (Whisper 사용)
-  if (state.useSystemAudio && !settings.openaiKey) {
-    showToast(t('sysAudioRequiresKey'), 'error');
-    return false;
-  }
-
   // 자동 언어감지 → OpenAI 키 필수 (Whisper 사용)
+  // 시스템 오디오 캡처는 브라우저 API라 키 무관 — 트랜스크립션이 안 될 뿐 녹화는 진행
   if (state.sourceLang === 'auto' && !settings.openaiKey) {
     showToast('자동 언어 감지는 OpenAI API 키가 필요합니다. Settings에서 키를 설정하세요.', 'error');
     return false;
@@ -952,7 +950,6 @@ async function startRecording() {
 
   if (!validateBeforeRecording()) return;
 
-  state.recordingSurface = 'translate'; // translate 탭 전용
   state.useWhisper = (state.sourceLang === 'auto') || state.useSystemAudio;
 
   let micStreamRef = null;
@@ -1044,7 +1041,6 @@ function stopRecording() {
   interimTranslateAbort = true;
   removeInterimEntry();
   removeInterim();
-  updateRecordingBadges();
 }
 
 // ============================================================
@@ -1069,8 +1065,8 @@ function serializeState() {
 }
 
 function scheduleHashUpdate() {
-  // 번역 탭 전용 — 다른 탭이거나 읽기 전용 모드에서는 해시 write 중단
-  if (state.activeTab !== 'translate' || state.isReadOnly) return;
+  // 세션 데이터는 어느 탭에서 갱신되든 해시에 반영 (ADR 0002). 읽기 전용 모드에서만 write 차단.
+  if (state.isReadOnly) return;
   clearTimeout(hashUpdateTimer);
   hashUpdateTimer = setTimeout(() => {
     const json = JSON.stringify(serializeState());
@@ -1251,10 +1247,11 @@ function renderAllEntries() {
   if (state.entries.length === 0) {
     dom.transcriptArea.appendChild(dom.emptyState);
     dom.emptyState.style.display = '';
-    return;
+  } else {
+    dom.emptyState.style.display = 'none';
+    state.entries.forEach((entry, i) => renderEntry(entry, i));
   }
-  dom.emptyState.style.display = 'none';
-  state.entries.forEach((entry, i) => renderEntry(entry, i));
+  renderMeetingProse();
 }
 
 function renderNote() {

@@ -1,4 +1,4 @@
-STATUS: DONE
+STATUS: DONE — §2-3/2-4의 "탭별 독립 저장소" 설계는 이후 [통합 뷰 리팩토링](../../../.claude/plans/cryptic-painting-crab.md 참조)으로 변경됨. 번역/회의록은 `state.entries` 단일 스토어를 공유하고 녹음 버튼은 탭 바깥 공용으로 승격되었다.
 
 # 3 탭 UI 도입 — 회의 기록 / 노트 / 대화 번역
 

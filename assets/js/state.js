@@ -127,6 +127,7 @@ const I18N = {
     tabMeeting: '회의 기록',
     tabNotes: '노트',
     tabTranslate: '대화 번역',
+    tabSummary: '요약',
     newNote: '+ 새 노트',
     deleteNote: '삭제',
     untitledNote: '제목 없는 노트',
@@ -251,6 +252,7 @@ const I18N = {
     tabMeeting: 'Meeting Notes',
     tabNotes: 'Notes',
     tabTranslate: 'Translation',
+    tabSummary: 'Summary',
     newNote: '+ New Note',
     deleteNote: 'Delete',
     untitledNote: 'Untitled Note',
@@ -303,7 +305,7 @@ function setLocale(locale) {
   }
 
   // Update meeting empty placeholder if visible
-  const meetingEmpty = document.querySelector('#meetingEntries div[style*="text-align:center"]');
+  const meetingEmpty = document.querySelector('#meetingEntries .meeting-empty');
   if (meetingEmpty) meetingEmpty.textContent = t('meetingEmptyPlaceholder');
 }
 
@@ -327,16 +329,12 @@ const state = {
   summaryEntryCount: 0,
   useWhisper: false,
   useSystemAudio: localStorage.getItem('rt_use_sys_audio') === 'true',
-  // Tab state (NEW)
+  // Tab state
   activeTab: localStorage.getItem('rt_active_tab') || 'translate',
-  recordingSurface: 'translate', // 'translate' | 'meeting'
-  // Meeting tab (NEW)
-  meetingEntries: [],
-  meetingTitle: '',
-  // Notes tab (NEW)
-  notes: [],
-  activeNoteId: null,
 };
+
+// 이전 버전에서 회의록이 별도 스토어로 저장되던 키 정리 (현재는 state.entries 공유)
+try { localStorage.removeItem('rt_meeting_entries_v1'); } catch(e) { /* ignore */ }
 
 // ============================================================
 // 3. DOM References
@@ -347,7 +345,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const dom = {
   transcriptArea: $('#transcriptArea'),
   emptyState: $('#emptyState'),
-  noteTextarea: null, // 노트 탭으로 승격 — renderNote()에서 안전하게 처리
+  noteTextarea: null, // initNotes()에서 late-bind
   summaryContent: $('#summaryContent'),
   summaryDisabled: $('#summaryDisabled'),
   btnRec: $('#btnRec'),

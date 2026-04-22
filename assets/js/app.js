@@ -138,31 +138,21 @@ function initSettingsUI() {
 }
 
 function updateWhisperAvailability() {
+  // 자동 언어 감지만 OpenAI Whisper에 실제로 종속됨 — 시스템 오디오 캡처는 브라우저 API라 키 불필요
   const settings = getSettings();
   const autoOption = $('#optAutoDetect');
-  if (settings.openaiKey) {
-    if (autoOption) autoOption.disabled = false;
-    if (dom.btnSysAudio) {
-      dom.btnSysAudio.disabled = false;
-      dom.btnSysAudio.title = '';
-    }
-  } else {
-    if (autoOption) autoOption.disabled = true;
-    if (state.sourceLang === 'auto') {
-      state.sourceLang = localStorage.getItem('rt_source_lang') || 'ko-KR';
-      if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
-      dom.sourceLang.value = state.sourceLang;
-      localStorage.setItem('rt_source_lang', state.sourceLang);
-      updateTargetCheckboxes();
-    }
-    if (dom.btnSysAudio) {
-      dom.btnSysAudio.disabled = true;
-      dom.btnSysAudio.title = 'OpenAI API 키가 필요합니다 (Settings에서 설정)';
-      if (state.useSystemAudio) {
-        state.useSystemAudio = false;
-        updateSysAudioToggle();
-      }
-    }
+  const hasKey = !!settings.openaiKey;
+
+  if (autoOption) {
+    autoOption.disabled = false;
+    autoOption.title = hasKey ? '' : 'OpenAI API 키가 필요합니다';
+  }
+  if (!hasKey && state.sourceLang === 'auto') {
+    state.sourceLang = localStorage.getItem('rt_source_lang') || 'ko-KR';
+    if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
+    dom.sourceLang.value = state.sourceLang;
+    localStorage.setItem('rt_source_lang', state.sourceLang);
+    updateTargetCheckboxes();
   }
 }
 
@@ -201,42 +191,69 @@ function saveCurrentSettings() {
 }
 
 // ============================================================
-// 13. Resizer
+// 13. Resizer — .main-split 안의 notes-pane 크기 조절 (row/column 양쪽 지원)
 // ============================================================
 function initResizer() {
-  let startY, startHeight;
-  const resizer = dom.resizer;
-  const targetSection = dom.summarySection; // Note section 승격 — summary로 리사이징
+  const split = $('#mainSplit');
+  const pane = $('#notesPane');
+  const resizer = $('#splitResizer');
+  if (!split || !pane || !resizer) return;
 
-  if (!resizer || !targetSection) return;
+  function isRow() {
+    return getComputedStyle(split).flexDirection === 'row';
+  }
 
-  function onMouseDown(e) {
+  function applySize(px) {
+    if (isRow()) {
+      pane.style.width = px + 'px';
+      pane.style.height = '';
+    } else {
+      pane.style.height = px + 'px';
+      pane.style.width = '';
+    }
+    pane.style.flex = '0 0 auto';
+  }
+
+  const saved = parseInt(localStorage.getItem('rt_notes_pane_size') || '', 10);
+  if (!isNaN(saved) && saved > 0) applySize(saved);
+
+  let startPos, startSize;
+  function onDown(e) {
     e.preventDefault();
-    startY = e.clientY || e.touches?.[0]?.clientY;
-    startHeight = targetSection.offsetHeight;
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('touchmove', onMouseMove, { passive: false });
-    document.addEventListener('touchend', onMouseUp);
+    const cx = e.clientX ?? e.touches?.[0]?.clientX;
+    const cy = e.clientY ?? e.touches?.[0]?.clientY;
+    startPos = isRow() ? cx : cy;
+    startSize = isRow() ? pane.offsetWidth : pane.offsetHeight;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
   }
-
-  function onMouseMove(e) {
+  function onMove(e) {
     e.preventDefault();
-    const clientY = e.clientY || e.touches?.[0]?.clientY;
-    const delta = startY - clientY;
-    const newHeight = Math.max(60, Math.min(400, startHeight + delta));
-    targetSection.style.height = newHeight + 'px';
+    const cx = e.clientX ?? e.touches?.[0]?.clientX;
+    const cy = e.clientY ?? e.touches?.[0]?.clientY;
+    const delta = isRow() ? (startPos - cx) : (startPos - cy);
+    const limit = isRow() ? Math.max(240, window.innerWidth - 240) : Math.max(160, window.innerHeight - 240);
+    const next = Math.max(140, Math.min(limit, startSize + delta));
+    applySize(next);
   }
-
-  function onMouseUp() {
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    document.removeEventListener('touchmove', onMouseMove);
-    document.removeEventListener('touchend', onMouseUp);
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+    const px = isRow() ? pane.offsetWidth : pane.offsetHeight;
+    try { localStorage.setItem('rt_notes_pane_size', String(px)); } catch(e) { /* quota */ }
   }
+  resizer.addEventListener('mousedown', onDown);
+  resizer.addEventListener('touchstart', onDown, { passive: false });
 
-  resizer.addEventListener('mousedown', onMouseDown);
-  resizer.addEventListener('touchstart', onMouseDown, { passive: false });
+  // 창 리사이즈로 row↔column 전환 시 저장값 재적용
+  window.addEventListener('resize', () => {
+    const s = parseInt(localStorage.getItem('rt_notes_pane_size') || '', 10);
+    if (!isNaN(s) && s > 0) applySize(s);
+  });
 }
 
 // ============================================================
@@ -282,13 +299,8 @@ function initEventListeners() {
 
   dom.btnSysAudio.addEventListener('click', () => {
     if (state.isReadOnly || state.isRecording) return;
-    const next = !state.useSystemAudio;
-    if (next && !getSettings().openaiKey) {
-      showToast(t('sysAudioRequiresKey'), 'error');
-      return;
-    }
-    state.useSystemAudio = next;
-    localStorage.setItem('rt_use_sys_audio', next);
+    state.useSystemAudio = !state.useSystemAudio;
+    localStorage.setItem('rt_use_sys_audio', state.useSystemAudio);
     updateSysAudioToggle();
   });
 
@@ -607,7 +619,6 @@ function init() {
   initMeeting();
   updateSysAudioToggle();
   initResizer();
-  initSectionToggles();
 
   // Warn before leaving if there's data
   window.addEventListener('beforeunload', (e) => {

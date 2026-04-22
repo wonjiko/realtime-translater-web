@@ -1,32 +1,26 @@
-/* tabs.js — 탭 관리 (섹션 3b) */
-// ============================================================
-// 3b. Tab Management
-// ============================================================
+/* tabs.js — 탭 관리 (meeting / translate / summary) */
+
+const VALID_TABS = ['meeting', 'translate', 'summary'];
+
 function switchTab(tab) {
-  const validTabs = ['meeting', 'notes', 'translate'];
-  if (!validTabs.includes(tab)) tab = 'translate';
+  if (!VALID_TABS.includes(tab)) tab = 'translate';
   state.activeTab = tab;
   try { localStorage.setItem('rt_active_tab', tab); } catch(e) { /* quota */ }
 
-  // Update panels
   $$('.tab-panel').forEach(panel => {
     panel.classList.toggle('active', panel.dataset.tab === tab);
   });
-  // Update buttons
   $$('.tab-btn').forEach(btn => {
     const isActive = btn.dataset.tab === tab;
     btn.classList.toggle('active', isActive);
     btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
-  // Show/hide recording badge on non-translate tabs
-  updateRecordingBadges();
-}
 
-function updateRecordingBadges() {
-  const meetingBadge = $('#meetingRecBadge');
-  const translateBadge = $('#translateRecBadge');
-  if (meetingBadge) meetingBadge.classList.toggle('visible', state.isRecording && state.recordingSurface === 'meeting' && state.activeTab !== 'meeting');
-  if (translateBadge) translateBadge.classList.toggle('visible', state.isRecording && state.recordingSurface === 'translate' && state.activeTab !== 'translate');
+  if (tab === 'meeting' && typeof renderMeetingProse === 'function') {
+    renderMeetingProse();
+  } else if (tab === 'summary' && typeof renderSummary === 'function') {
+    renderSummary();
+  }
 }
 
 function initTabs() {
@@ -37,7 +31,6 @@ function initTabs() {
     });
   });
 
-  // Keyboard navigation (WAI-ARIA tablist pattern)
   const tabBar = $('#tabBar');
   if (tabBar) {
     tabBar.addEventListener('keydown', (e) => {
@@ -57,7 +50,8 @@ function initTabs() {
     });
   }
 
-  // Restore last active tab
-  const savedTab = localStorage.getItem('rt_active_tab') || 'translate';
-  switchTab(savedTab);
+  // 레거시 'notes' 저장값은 translate로 정규화
+  const saved = localStorage.getItem('rt_active_tab');
+  const initial = VALID_TABS.includes(saved) ? saved : 'translate';
+  switchTab(initial);
 }
