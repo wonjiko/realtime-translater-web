@@ -304,11 +304,16 @@ function setLocale(locale) {
 // ============================================================
 // 2. State
 // ============================================================
+function safeParseJSON(raw, fallback) {
+  if (!raw) return fallback;
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
 const state = {
   isRecording: false,
   isReadOnly: false,
   sourceLang: localStorage.getItem('rt_source_lang') || 'ko-KR',
-  targetLangs: JSON.parse(localStorage.getItem('rt_target_langs') || 'null') || ['en', 'ja'],
+  targetLangs: safeParseJSON(localStorage.getItem('rt_target_langs'), null) || ['en', 'ja'],
   entries: [],
   interimText: '',
   note: '',
