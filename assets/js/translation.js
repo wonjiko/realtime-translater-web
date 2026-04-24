@@ -462,13 +462,6 @@ function getSupportedMimeType() {
   return '';
 }
 
-function getFileExtension(mimeType) {
-  if (mimeType.includes('webm')) return 'webm';
-  if (mimeType.includes('mp4')) return 'mp4';
-  if (mimeType.includes('ogg')) return 'ogg';
-  return 'webm';
-}
-
 async function initSystemAudioMixing() {
   if (!navigator.mediaDevices?.getDisplayMedia) {
     showToast(t('sysAudioNotSupported'), 'error');
@@ -678,48 +671,11 @@ async function processWhisperChunk(audioBlob) {
   const settings = getSettings();
   if (!settings.openaiKey) return;
 
-  if (settings.translationMode === 'enhanced' && settings.provider === 'openai') {
-    try {
-      await processWhisperChunkEnhanced(audioBlob, settings);
-      return;
-    } catch (e) {
-      console.warn('Enhanced mode failed, falling back:', e);
-      showToast(t('enhancedFallback'), 'info');
-    }
-  }
-  await processWhisperChunkStandard(audioBlob, settings);
-}
-
-async function processWhisperChunkStandard(audioBlob, settings) {
-  updateWhisperStatus(t('processing'));
-
-  const ext = getFileExtension(audioBlob.type || 'audio/webm');
-  const formData = new FormData();
-  formData.append('file', audioBlob, `audio.${ext}`);
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'verbose_json');
-  // Pass language hint when source is explicitly set (not auto-detect)
-  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang]) {
-    formData.append('language', LANG_MAP[state.sourceLang].code);
-  }
-
   try {
-    const res = await fetchWithTimeout('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${settings.openaiKey}` },
-      body: formData,
-    }, 15000);
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Whisper API error: ${res.status}`);
-    }
-
-    const data = await res.json();
-    handleWhisperResult(data);
+    await processWhisperChunkEnhanced(audioBlob, settings);
   } catch (e) {
-    console.error('Whisper API error:', e);
-    showToast(`Whisper: ${e.message}`, 'error');
+    console.error('Enhanced audio error:', e);
+    showToast(`Audio: ${e.message}`, 'error');
   } finally {
     if (state.isRecording && state.useWhisper) {
       updateWhisperStatus(t('listening'));
@@ -851,45 +807,6 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
   if (state.isRecording && state.useWhisper) {
     updateWhisperStatus(t('listening'));
   }
-}
-
-function handleWhisperResult(data) {
-  const text = data.text?.trim();
-  if (!text) return;
-
-  const detectedLang = WHISPER_LANG_TO_APP[data.language?.toLowerCase()];
-
-  // Skip if source language is explicitly set and detected language doesn't match
-  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang] && detectedLang && detectedLang !== LANG_MAP[state.sourceLang].code) {
-    return;
-  }
-
-  const entry = {
-    ts: Math.floor(Date.now() / 1000),
-    s: detectedLang || data.language?.substring(0, 2) || '??',
-    o: text,
-    tr: {},
-  };
-
-  state.entries.push(entry);
-  const idx = state.entries.length - 1;
-  state.interimText = '';
-  removeInterim();
-  renderEntry(entry, idx);
-  appendMeetingProse(entry);
-  scheduleHashUpdate();
-
-  if (!detectedLang) {
-    showToast(`${t('unsupportedLang')}: ${data.language}`, 'info');
-    return;
-  }
-
-  translateEntry(entry).then(() => {
-    updateEntryTranslations(idx, entry);
-    renderMeetingProse();
-    scheduleHashUpdate();
-    checkAutoSummary();
-  });
 }
 
 function updateWhisperStatus(text) {

@@ -203,22 +203,15 @@ if (typeof LZString === 'undefined') {
       </div>
     </div>
 
-    <div class="setting-group" id="fieldsTranslationMode" style="display:none">
-      <label data-i18n="translationMode">번역 모드</label>
-      <div class="theme-toggle">
-        <button class="theme-btn active" data-mode-val="standard" data-i18n="standardMode">트랜스크립션</button>
-        <button class="theme-btn" data-mode-val="enhanced" data-i18n="enhancedMode">멀티모달</button>
-      </div>
-      <div id="enhancedModelGroup" style="display:none;margin-top:8px">
-        <label data-i18n="enhancedModel" style="font-size:13px">번역 모델</label>
-        <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
-          <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
-          <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
-          <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
-        </select>
-        <input type="text" id="enhancedModelCustomInput" data-i18n-placeholder="enhancedModelPlaceholder" placeholder="audio input 지원 모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
-      </div>
-      <div id="translationModeHint" class="hint" data-i18n="standardModeHint" style="margin-top:6px">음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리</div>
+    <div class="setting-group" id="fieldsEnhancedModel" style="display:none">
+      <label data-i18n="enhancedModel">번역 모델</label>
+      <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
+        <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
+        <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
+        <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
+      </select>
+      <input type="text" id="enhancedModelCustomInput" data-i18n-placeholder="enhancedModelPlaceholder" placeholder="audio input 지원 모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
+      <div class="hint" data-i18n="enhancedModeHint" style="margin-top:6px">음성 → Audio 모델(원문+번역 동시 반환) · 1단계 처리</div>
     </div>
 
     <div class="setting-group" id="fieldsChunkSettings">
