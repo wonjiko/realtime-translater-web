@@ -9,7 +9,7 @@ function loadSettings() {
     anthropicKey: localStorage.getItem('rt_anthropic_key') || '',
     gasUrl: localStorage.getItem('rt_gas_url') || '',
     theme: localStorage.getItem('rt_theme') || 'system',
-    translationMode: localStorage.getItem('rt_translation_mode') || 'standard',
+    translationMode: localStorage.getItem('rt_translation_mode') || 'enhanced',
     enhancedModel: localStorage.getItem('rt_enhanced_model') || 'gpt-4o-audio-preview',
     chunkMode: localStorage.getItem('rt_chunk_mode') || 'time',
     chunkDuration: parseInt(localStorage.getItem('rt_chunk_duration') || '4000'),
