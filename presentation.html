@@ -60,6 +60,7 @@
     pointer-events: none;
     display: flex;
     flex-direction: column;
+    justify-content: safe center;
     overflow: auto;
   }
   .slide.active {
@@ -67,7 +68,6 @@
     transform: translateY(0);
     pointer-events: auto;
   }
-  .slide.center { justify-content: center; }
 
   /* nav */
   .nav {
@@ -143,9 +143,8 @@
 
   /* cover */
   .cover {
-    display: flex; flex-direction: column; justify-content: center;
+    display: flex; flex-direction: column;
     align-items: flex-start;
-    height: 100%;
   }
   .cover-mark {
     font-family: var(--mono);
@@ -349,33 +348,6 @@
   }
   .next b { color: var(--accent-2); font-weight: 500; }
 
-  .eval-panel {
-    margin-top: 18px;
-  }
-  .eval-list {
-    list-style: none;
-    margin: 0; padding: 0;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-  .eval-list li {
-    font-size: 12.5px;
-    color: var(--fg);
-    line-height: 1.5;
-    padding: 10px 12px;
-    background: var(--bg-soft2);
-    border-left: 2px solid var(--accent);
-  }
-  .eval-list li .k {
-    display: block;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--fg-mute);
-    letter-spacing: .12em;
-    margin-bottom: 3px;
-  }
-
   /* hint */
   .hint {
     position: fixed; bottom: 20px; right: 24px;
@@ -397,7 +369,6 @@
   @media (max-width: 1100px) {
     .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
     .product-grid { grid-template-columns: 1fr; }
-    .eval-list { grid-template-columns: 1fr; }
   }
   @media (max-width: 700px) {
     .grid-3, .grid-4, .grid-2 { grid-template-columns: 1fr; }
@@ -419,7 +390,7 @@
 <div class="stage" id="stage">
 
   <!-- Slide 1 — Cover (title only) -->
-  <section class="slide active center" data-slide="1">
+  <section class="slide active" data-slide="1">
     <div class="cover">
       <div class="cover-mark">Internal Intro · 2026</div>
       <h1 class="cover-title">실시간 번역 회의록</h1>
@@ -585,7 +556,7 @@
         <div class="card feat">
           <div class="head"><span class="ic">SHARE</span><span class="title">공유</span></div>
           <ul>
-            <li>URL에 상태 인코딩</li>
+            <li style="color: var(--accent); font-weight: 600;">URL에 모든걸 저장하는 상남자 DB</li>
             <li>서버 없음 · DB 없음 · 가입 없음</li>
           </ul>
         </div>
@@ -677,31 +648,32 @@
         </ul>
         <div class="next"><b>NEXT</b> · 요약 / 메모 export 보강</div>
       </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <div class="limit-row">
+          <h3>소리 작을 때 헛소리</h3>
+          <span class="badge">LLM 특성</span>
+        </div>
+        <ul>
+          <li>입력 신호가 약하면 모델이 빈 자리를 환각 번역으로 채움</li>
+          <li class="dim">아무도 말 안 한 문장이 자막에 다량 등장</li>
+        </ul>
+        <div class="next"><b>NEXT</b> · 무음 컷오프 / VAD 튜닝 시도 · 완전 해결은 불확실</div>
+      </div>
     </div>
   </section>
 
-  <!-- Slide 6 — 평가 기준 -->
+  <!-- Slide 6 — 끝 -->
   <section class="slide" data-slide="6">
-    <div class="section-head">
-      <span class="section-num">05</span>
-      <span class="section-name">평가 기준</span>
-      <span class="section-tail">How we judge it</span>
+    <div class="cover">
+      <div class="cover-mark">Fin · 2026</div>
+      <h1 class="cover-title">끝.</h1>
+      <div class="cover-jp">おわり</div>
     </div>
-
-    <ul class="eval-list">
-      <li>
-        <span class="k">01 · DURING</span>
-        회의 도중 "방금 뭐였지?" 횟수가 줄었는가
-      </li>
-      <li>
-        <span class="k">02 · AFTER</span>
-        회의 끝났을 때 토픽 리스트가 머리에 남는가
-      </li>
-      <li>
-        <span class="k">03 · NEXT TIME</span>
-        다음 미팅에서 자연스럽게 다시 켜게 되는가
-      </li>
-    </ul>
+    <div class="cover-bottom">
+      <div>v0.x · Won Ji Ko</div>
+      <div>Q &amp; A</div>
+    </div>
   </section>
 
 </div>
