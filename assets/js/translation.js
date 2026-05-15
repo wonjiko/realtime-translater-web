@@ -60,7 +60,7 @@ const translators = {
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: `You are a professional translator. Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.`
+            content: PROMPTS.translate({ from, to }).instruction
           }, {
             role: 'user',
             content: text
@@ -81,9 +81,10 @@ const translators = {
     async summarize(transcript) {
       const settings = getSettings();
       if (!settings.openaiKey) throw new Error('OpenAI API key not configured');
-      const text = transcript.map(e =>
-        `[${LANG_NAMES[e.s]}] ${e.o}`
-      ).join('\n');
+      const text = transcript.map(e => {
+        const preferred = e.tr && e.tr[currentLocale] ? e.tr[currentLocale] : e.o;
+        return `[${LANG_NAMES[e.s]}] ${preferred}`;
+      }).join('\n');
       const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -94,13 +95,7 @@ const translators = {
           model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
-            content: `You are a meeting assistant. Summarize the following meeting transcript.
-Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
-## Key Topics
-## Decisions
-## Action Items
-
-Keep it concise. Use bullet points.`
+            content: PROMPTS.summarize({ locale: currentLocale }).instruction
           }, {
             role: 'user',
             content: text
@@ -135,7 +130,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 1000,
           messages: [{
             role: 'user',
-            content: `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Return ONLY the translation, no explanations.\n\n${text}`
+            content: `${PROMPTS.translate({ from, to }).instruction}\n\n${text}`
           }],
         }),
       }, 15000);
@@ -151,9 +146,10 @@ Keep it concise. Use bullet points.`
     async summarize(transcript) {
       const settings = getSettings();
       if (!settings.anthropicKey) throw new Error('Anthropic API key not configured');
-      const text = transcript.map(e =>
-        `[${LANG_NAMES[e.s]}] ${e.o}`
-      ).join('\n');
+      const text = transcript.map(e => {
+        const preferred = e.tr && e.tr[currentLocale] ? e.tr[currentLocale] : e.o;
+        return `[${LANG_NAMES[e.s]}] ${preferred}`;
+      }).join('\n');
       const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -167,15 +163,7 @@ Keep it concise. Use bullet points.`
           max_tokens: 2000,
           messages: [{
             role: 'user',
-            content: `Summarize the following meeting transcript. Format your response in ${currentLocale === 'ko' ? 'Korean' : 'English'} with these sections:
-## Key Topics
-## Decisions
-## Action Items
-
-Keep it concise. Use bullet points.
-
-Transcript:
-${text}`
+            content: `${PROMPTS.summarize({ locale: currentLocale }).instruction}\n\n${text}`
           }],
         }),
       }, 30000);
@@ -300,6 +288,7 @@ function initSpeechRecognition() {
           scheduleHashUpdate();
           translateEntry(entry).then(() => {
             updateEntryTranslations(idx, entry);
+            renderMeetingProse();
             scheduleHashUpdate();
             checkAutoSummary();
           });
@@ -471,13 +460,6 @@ function getSupportedMimeType() {
     if (MediaRecorder.isTypeSupported(type)) return type;
   }
   return '';
-}
-
-function getFileExtension(mimeType) {
-  if (mimeType.includes('webm')) return 'webm';
-  if (mimeType.includes('mp4')) return 'mp4';
-  if (mimeType.includes('ogg')) return 'ogg';
-  return 'webm';
 }
 
 async function initSystemAudioMixing() {
@@ -689,48 +671,11 @@ async function processWhisperChunk(audioBlob) {
   const settings = getSettings();
   if (!settings.openaiKey) return;
 
-  if (settings.translationMode === 'enhanced' && settings.provider === 'openai') {
-    try {
-      await processWhisperChunkEnhanced(audioBlob, settings);
-      return;
-    } catch (e) {
-      console.warn('Enhanced mode failed, falling back:', e);
-      showToast(t('enhancedFallback'), 'info');
-    }
-  }
-  await processWhisperChunkStandard(audioBlob, settings);
-}
-
-async function processWhisperChunkStandard(audioBlob, settings) {
-  updateWhisperStatus(t('processing'));
-
-  const ext = getFileExtension(audioBlob.type || 'audio/webm');
-  const formData = new FormData();
-  formData.append('file', audioBlob, `audio.${ext}`);
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'verbose_json');
-  // Pass language hint when source is explicitly set (not auto-detect)
-  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang]) {
-    formData.append('language', LANG_MAP[state.sourceLang].code);
-  }
-
   try {
-    const res = await fetchWithTimeout('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${settings.openaiKey}` },
-      body: formData,
-    }, 15000);
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Whisper API error: ${res.status}`);
-    }
-
-    const data = await res.json();
-    handleWhisperResult(data);
+    await processWhisperChunkEnhanced(audioBlob, settings);
   } catch (e) {
-    console.error('Whisper API error:', e);
-    showToast(`Whisper: ${e.message}`, 'error');
+    console.error('Enhanced audio error:', e);
+    showToast(`Audio: ${e.message}`, 'error');
   } finally {
     if (state.isRecording && state.useWhisper) {
       updateWhisperStatus(t('listening'));
@@ -800,7 +745,7 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
       model: settings.enhancedModel || 'gpt-4o-audio-preview',
       messages: [{
         role: 'system',
-        content: `You are a professional meeting transcriber and translator. Listen to the audio and respond with ONLY valid JSON (no markdown): {"text": "<original transcription>", "lang": "<detected language code: en, ja, or ko>", "translations": {"<target_lang_code>": "<translation>"}}\nTarget languages: ${targets}. Translate to all requested target languages.`
+        content: PROMPTS.enhancedAudio({ targetLangNames: targets }).instruction
       }, {
         role: 'user',
         content: [{
@@ -862,44 +807,6 @@ async function processWhisperChunkEnhanced(audioBlob, settings) {
   if (state.isRecording && state.useWhisper) {
     updateWhisperStatus(t('listening'));
   }
-}
-
-function handleWhisperResult(data) {
-  const text = data.text?.trim();
-  if (!text) return;
-
-  const detectedLang = WHISPER_LANG_TO_APP[data.language?.toLowerCase()];
-
-  // Skip if source language is explicitly set and detected language doesn't match
-  if (state.sourceLang !== 'auto' && LANG_MAP[state.sourceLang] && detectedLang && detectedLang !== LANG_MAP[state.sourceLang].code) {
-    return;
-  }
-
-  const entry = {
-    ts: Math.floor(Date.now() / 1000),
-    s: detectedLang || data.language?.substring(0, 2) || '??',
-    o: text,
-    tr: {},
-  };
-
-  state.entries.push(entry);
-  const idx = state.entries.length - 1;
-  state.interimText = '';
-  removeInterim();
-  renderEntry(entry, idx);
-  appendMeetingProse(entry);
-  scheduleHashUpdate();
-
-  if (!detectedLang) {
-    showToast(`${t('unsupportedLang')}: ${data.language}`, 'info');
-    return;
-  }
-
-  translateEntry(entry).then(() => {
-    updateEntryTranslations(idx, entry);
-    scheduleHashUpdate();
-    checkAutoSummary();
-  });
 }
 
 function updateWhisperStatus(text) {
@@ -1465,7 +1372,7 @@ function openJsonFile(file) {
         if (slEntry) state.sourceLang = slEntry[0];
       }
 
-      state.targetLangs = data.tl || ['en', 'ja'];
+      state.targetLangs = data.tl || [currentLocale];
       state.entries = data.t || [];
       state.note = data.n || '';
       state.summary = data.sum || '';
@@ -1476,11 +1383,8 @@ function openJsonFile(file) {
       renderNote();
       renderSummary();
 
-      // Sync UI
+      // Sync UI (타겟 언어는 UI 로케일 자동 추종이라 체크박스 sync 불필요)
       dom.sourceLang.value = state.sourceLang === 'auto' ? 'auto' : state.sourceLang;
-      $$('.target-langs input[type="checkbox"]').forEach(cb => {
-        cb.checked = state.targetLangs.includes(cb.value);
-      });
 
       showToast(t('fileLoaded'), 'success');
     } catch (err) {

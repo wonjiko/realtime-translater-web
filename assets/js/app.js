@@ -9,7 +9,6 @@ function loadSettings() {
     anthropicKey: localStorage.getItem('rt_anthropic_key') || '',
     gasUrl: localStorage.getItem('rt_gas_url') || '',
     theme: localStorage.getItem('rt_theme') || 'system',
-    translationMode: localStorage.getItem('rt_translation_mode') || 'standard',
     enhancedModel: localStorage.getItem('rt_enhanced_model') || 'gpt-4o-audio-preview',
     chunkMode: localStorage.getItem('rt_chunk_mode') || 'time',
     chunkDuration: parseInt(localStorage.getItem('rt_chunk_duration') || '4000'),
@@ -24,7 +23,6 @@ function saveSettings(settings) {
   localStorage.setItem('rt_anthropic_key', settings.anthropicKey);
   localStorage.setItem('rt_gas_url', settings.gasUrl);
   localStorage.setItem('rt_theme', settings.theme);
-  localStorage.setItem('rt_translation_mode', settings.translationMode);
   localStorage.setItem('rt_enhanced_model', settings.enhancedModel);
   localStorage.setItem('rt_chunk_mode', settings.chunkMode);
   localStorage.setItem('rt_chunk_duration', settings.chunkDuration);
@@ -96,15 +94,7 @@ function initSettingsUI() {
   applyTheme(settings.theme);
   updateWhisperAvailability();
 
-  // Translation mode
-  $$('[data-mode-val]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.modeVal === settings.translationMode);
-  });
-  $('#enhancedModelGroup').style.display = settings.translationMode === 'enhanced' ? '' : 'none';
-  const hintKey = settings.translationMode === 'enhanced' ? 'enhancedModeHint' : 'standardModeHint';
-  const hintEl = $('#translationModeHint');
-  hintEl.dataset.i18n = hintKey;
-  hintEl.textContent = t(hintKey);
+  // Enhanced audio model (OpenAI 전용 — 멀티모달 고정, 모델 선택만)
   const modelSelect = $('#enhancedModelSelect');
   const customInput = $('#enhancedModelCustomInput');
   const presetValues = [...modelSelect.options].map(o => o.value).filter(v => v !== 'custom');
@@ -152,7 +142,6 @@ function updateWhisperAvailability() {
     if (state.sourceLang === 'auto') state.sourceLang = 'ko-KR';
     dom.sourceLang.value = state.sourceLang;
     localStorage.setItem('rt_source_lang', state.sourceLang);
-    updateTargetCheckboxes();
   }
 }
 
@@ -160,12 +149,11 @@ function updateProviderFields(provider) {
   $('#fieldsOpenai').classList.toggle('hidden', provider !== 'openai');
   $('#fieldsAnthropic').classList.toggle('hidden', provider !== 'anthropic');
   $('#fieldsGas').classList.toggle('hidden', provider !== 'gas');
-  $('#fieldsTranslationMode').style.display = provider === 'openai' ? '' : 'none';
+  $('#fieldsEnhancedModel').style.display = provider === 'openai' ? '' : 'none';
 }
 
 function saveCurrentSettings() {
   const provider = document.querySelector('input[name="provider"]:checked').value;
-  const activeMode = document.querySelector('[data-mode-val].active');
   const activeChunkMode = document.querySelector('[data-chunk-mode].active');
   const activeChunkDur = document.querySelector('[data-chunk-dur].active');
   const activeMaxDur = document.querySelector('[data-max-dur].active');
@@ -178,7 +166,6 @@ function saveCurrentSettings() {
     anthropicKey: $('#inputAnthropicKey').value.trim(),
     gasUrl: $('#inputGasUrl').value.trim(),
     theme: getSettings().theme,
-    translationMode: activeMode?.dataset.modeVal || 'standard',
     enhancedModel: enhancedModel || 'gpt-4o-audio-preview',
     chunkMode: activeChunkMode?.dataset.chunkMode || 'time',
     chunkDuration: parseInt(activeChunkDur?.dataset.chunkDur || '4000'),
@@ -350,15 +337,6 @@ function initEventListeners() {
       stopRecording();
       startRecording();
     }
-    updateTargetCheckboxes();
-  });
-
-  // Target language checkboxes
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-      localStorage.setItem('rt_target_langs', JSON.stringify(state.targetLangs));
-    });
   });
 
   // Note textarea (레거시 — 노트 탭으로 승격됨, 하위호환을 위해 null-guard)
@@ -387,20 +365,7 @@ function initEventListeners() {
   // Provider change
   $$('input[name="provider"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
-      const newProvider = e.target.value;
-      updateProviderFields(newProvider);
-      // Enhanced mode is only available for openai — reset to standard if switching away
-      if (newProvider !== 'openai') {
-        const activeMode = document.querySelector('[data-mode-val].active');
-        if (activeMode && activeMode.dataset.modeVal === 'enhanced') {
-          $$('[data-mode-val]').forEach(b => b.classList.remove('active'));
-          document.querySelector('[data-mode-val="standard"]').classList.add('active');
-          $('#enhancedModelGroup').style.display = 'none';
-          const hint = $('#translationModeHint');
-          hint.dataset.i18n = 'standardModeHint';
-          hint.textContent = t('standardModeHint');
-        }
-      }
+      updateProviderFields(e.target.value);
       saveCurrentSettings();
     });
   });
@@ -418,21 +383,6 @@ function initEventListeners() {
       settings.theme = theme;
       saveSettings(settings);
       applyTheme(theme);
-    });
-  });
-
-  // Translation mode toggle
-  $$('[data-mode-val]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $$('[data-mode-val]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const isEnhanced = btn.dataset.modeVal === 'enhanced';
-      $('#enhancedModelGroup').style.display = isEnhanced ? '' : 'none';
-      const hint = $('#translationModeHint');
-      const key = isEnhanced ? 'enhancedModeHint' : 'standardModeHint';
-      hint.dataset.i18n = key;
-      hint.textContent = t(key);
-      saveCurrentSettings();
     });
   });
 
@@ -521,24 +471,6 @@ function initEventListeners() {
   dom.btnRefreshSummary.addEventListener('click', refreshSummary);
 }
 
-function updateTargetCheckboxes() {
-  if (state.sourceLang === 'auto') {
-    $$('.target-langs input[type="checkbox"]').forEach(cb => { cb.disabled = false; });
-    state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-    return;
-  }
-  const sourceCode = LANG_MAP[state.sourceLang].code;
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    if (cb.value === sourceCode) {
-      cb.checked = false;
-      cb.disabled = true;
-    } else {
-      cb.disabled = false;
-    }
-  });
-  state.targetLangs = Array.from($$('.target-langs input:checked')).map(el => el.value);
-}
-
 // ============================================================
 // 17. Initialization
 // ============================================================
@@ -546,12 +478,8 @@ function init() {
   // Apply locale
   setLocale(currentLocale);
 
-  // Restore source language & target languages from preferences
+  // Restore source language from preferences (target langs follow UI locale)
   dom.sourceLang.value = state.sourceLang;
-  // Sync target checkboxes with saved state
-  $$('.target-langs input[type="checkbox"]').forEach(cb => {
-    cb.checked = state.targetLangs.includes(cb.value);
-  });
 
   // Check for speech recognition support (don't create instance yet — defer to first REC press)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -592,7 +520,7 @@ function init() {
               const slEntry = Object.entries(LANG_MAP).find(([, v]) => v.code === data.sl);
               if (slEntry) state.sourceLang = slEntry[0];
             }
-            state.targetLangs = data.tl || ['en', 'ja'];
+            state.targetLangs = data.tl || [currentLocale];
             state.entries = data.t || [];
             state.note = data.n || '';
             state.summary = data.sum || '';
@@ -604,7 +532,6 @@ function init() {
     }
     setReadOnlyMode(false);
     renderSummary();
-    updateTargetCheckboxes();
   }
 
   // Init UI components

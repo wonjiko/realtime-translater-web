@@ -55,6 +55,18 @@ if (typeof LZString === 'undefined') {
   <button id="btnNewSession" data-i18n="newSession">새 세션</button>
 </div>
 
+<!-- Language Bar: 음성 언어만 — 번역 대상은 UI locale(EN/KO)을 자동 추종 -->
+<div class="lang-bar" id="langBar">
+  <label data-i18n="voice">음성 언어</label>
+  <select id="sourceLang">
+    <option value="auto" id="optAutoDetect" data-i18n="autoDetect">자동 감지 (OpenAI Whisper 필요)</option>
+    <option value="en-US">English</option>
+    <option value="ja-JP">Japanese</option>
+    <option value="ko-KR" selected>Korean</option>
+  </select>
+  <span id="whisperStatus" class="whisper-status" style="display:none"></span>
+</div>
+
 <!-- Tab Navigation -->
 <nav class="tab-bar" id="tabBar" role="tablist">
   <button class="tab-btn" id="tabBtnMeeting" data-tab="meeting" role="tab" aria-selected="false" aria-controls="tabMeeting">
@@ -79,22 +91,6 @@ if (typeof LZString === 'undefined') {
 
     <!-- Tab: 대화 번역 -->
     <section class="tab-panel active" id="tabTranslate" data-tab="translate" role="tabpanel" aria-labelledby="tabBtnTranslate">
-      <div class="lang-bar" id="langBar">
-        <label data-i18n="voice">음성 언어</label>
-        <select id="sourceLang">
-          <option value="auto" id="optAutoDetect" data-i18n="autoDetect">자동 감지 (OpenAI Whisper 필요)</option>
-          <option value="en-US">English</option>
-          <option value="ja-JP">Japanese</option>
-          <option value="ko-KR" selected>Korean</option>
-        </select>
-        <span id="whisperStatus" class="whisper-status" style="display:none"></span>
-        <label data-i18n="translate">번역 대상</label>
-        <div class="target-langs">
-          <label class="check-label"><input type="checkbox" id="targetEn" value="en" checked> EN</label>
-          <label class="check-label"><input type="checkbox" id="targetJa" value="ja" checked> JA</label>
-          <label class="check-label"><input type="checkbox" id="targetKo" value="ko" checked> KO</label>
-        </div>
-      </div>
       <div class="transcript-area" id="transcriptArea" aria-live="polite" role="log">
         <div class="empty-state" id="emptyState">
           <div>
@@ -207,22 +203,15 @@ if (typeof LZString === 'undefined') {
       </div>
     </div>
 
-    <div class="setting-group" id="fieldsTranslationMode" style="display:none">
-      <label data-i18n="translationMode">번역 모드</label>
-      <div class="theme-toggle">
-        <button class="theme-btn active" data-mode-val="standard" data-i18n="standardMode">트랜스크립션</button>
-        <button class="theme-btn" data-mode-val="enhanced" data-i18n="enhancedMode">멀티모달</button>
-      </div>
-      <div id="enhancedModelGroup" style="display:none;margin-top:8px">
-        <label data-i18n="enhancedModel" style="font-size:13px">번역 모델</label>
-        <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
-          <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
-          <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
-          <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
-        </select>
-        <input type="text" id="enhancedModelCustomInput" data-i18n-placeholder="enhancedModelPlaceholder" placeholder="audio input 지원 모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
-      </div>
-      <div id="translationModeHint" class="hint" data-i18n="standardModeHint" style="margin-top:6px">음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리</div>
+    <div class="setting-group" id="fieldsEnhancedModel" style="display:none">
+      <label data-i18n="enhancedModel">번역 모델</label>
+      <select id="enhancedModelSelect" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px">
+        <option value="gpt-4o-audio-preview" selected>gpt-4o-audio-preview (기본)</option>
+        <option value="gpt-4o-mini-audio-preview">gpt-4o-mini-audio-preview (저렴)</option>
+        <option value="custom" data-i18n="enhancedModelCustom">직접 입력</option>
+      </select>
+      <input type="text" id="enhancedModelCustomInput" data-i18n-placeholder="enhancedModelPlaceholder" placeholder="audio input 지원 모델명 입력" style="display:none;width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-top:4px;box-sizing:border-box">
+      <div class="hint" data-i18n="enhancedModeHint" style="margin-top:6px">음성 → Audio 모델(원문+번역 동시 반환) · 1단계 처리</div>
     </div>
 
     <div class="setting-group" id="fieldsChunkSettings">
@@ -264,6 +253,7 @@ if (typeof LZString === 'undefined') {
 </div>
 
 <script src="assets/js/state.js"></script>
+<script src="assets/js/prompts.js"></script>
 <script src="assets/js/tabs.js"></script>
 <script src="assets/js/translation.js"></script>
 <script src="assets/js/notes.js"></script>

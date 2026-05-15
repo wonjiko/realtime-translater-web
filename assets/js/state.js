@@ -93,14 +93,9 @@ const I18N = {
     hashLoadFailed: '공유 데이터를 불러오는데 실패했습니다',
     autoDetectRequiresKey: '자동 감지에는 OpenAI API Key가 필요합니다. 설정에서 입력해주세요.',
     summaryFailed: '요약 실패',
-    translationMode: '번역 모드',
-    standardMode: '트랜스크립션',
-    enhancedMode: '멀티모달',
-    standardModeHint: '음성 → Whisper(원문) → 번역 API(번역) · 2단계 처리',
     enhancedModeHint: '음성 → Audio 모델(원문+번역 동시 반환) · 1단계 처리',
     enhancedModel: '번역 모델',
     enhancedModelCustom: '직접 입력',
-    enhancedFallback: '멀티모달 모드 실패, 트랜스크립션으로 전환합니다',
     chunkSettings: '음성 분할',
     chunkDesc: '연속 음성을 일정 단위로 잘라 번역합니다. 짧으면 빠르게, 길면 문맥을 더 잘 이해합니다.',
     timeBased: '시간 기반',
@@ -218,14 +213,9 @@ const I18N = {
     hashLoadFailed: 'Failed to load shared data',
     autoDetectRequiresKey: 'Auto-detect requires an OpenAI API Key. Please set it up in Settings.',
     summaryFailed: 'Summary failed',
-    translationMode: 'Translation Mode',
-    standardMode: 'Transcription',
-    enhancedMode: 'Multimodal',
-    standardModeHint: 'Audio → Whisper (transcript) → Translation API (translate) · 2-step',
     enhancedModeHint: 'Audio → Audio model (transcript + translation at once) · 1-step',
     enhancedModel: 'Translation Model',
     enhancedModelCustom: 'Custom',
-    enhancedFallback: 'Multimodal mode failed, falling back to transcription mode',
     chunkSettings: 'Audio Splitting',
     chunkDesc: 'Splits continuous audio into chunks for translation. Shorter = faster, longer = better context.',
     timeBased: 'Time-based',
@@ -281,6 +271,11 @@ function t(key) {
 function setLocale(locale) {
   currentLocale = locale;
   localStorage.setItem('rt_locale', locale);
+  // 번역 대상 언어는 UI 로케일(en/ko)을 자동 추종
+  if (state && typeof state === 'object') {
+    state.targetLangs = [locale];
+    try { localStorage.setItem('rt_target_langs', JSON.stringify(state.targetLangs)); } catch(e) { /* quota */ }
+  }
   document.documentElement.lang = locale;
   document.title = t('pageTitle');
 
@@ -304,9 +299,8 @@ function setLocale(locale) {
     dom.noteTextarea.placeholder = t('notePlaceholder');
   }
 
-  // Update meeting empty placeholder if visible
-  const meetingEmpty = document.querySelector('#meetingEntries .meeting-empty');
-  if (meetingEmpty) meetingEmpty.textContent = t('meetingEmptyPlaceholder');
+  // Re-render 회의록 속기록: placeholder도 갱신되고 번역된 텍스트가 새 로케일 기준으로 바뀜
+  if (typeof renderMeetingProse === 'function') renderMeetingProse();
 }
 
 // ============================================================
@@ -321,7 +315,7 @@ const state = {
   isRecording: false,
   isReadOnly: false,
   sourceLang: localStorage.getItem('rt_source_lang') || 'ko-KR',
-  targetLangs: safeParseJSON(localStorage.getItem('rt_target_langs'), null) || ['en', 'ja'],
+  targetLangs: [currentLocale],
   entries: [],
   interimText: '',
   note: '',

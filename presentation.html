@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>실시간 번역 회의록 — Internal Intro</title>
+<style>
+  :root {
+    --bg: #0b0c0e;
+    --bg-soft: #111316;
+    --bg-soft2: #14171c;
+    --fg: #ececec;
+    --fg-dim: #8a8f98;
+    --fg-mute: #5b6068;
+    --line: #1f2228;
+    --line-strong: #2a2e35;
+    --accent: #e8c07a;
+    --accent-2: #7ec8e8;
+    --accent-soft: #e8c07a22;
+    --ok: #9fd28b;
+    --no: #d27b7b;
+    --maybe: #d2c07b;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", "Hiragino Sans", "Noto Sans JP", "Apple SD Gothic Neo", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100%;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index: 1;
+  }
+
+  .stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    z-index: 2;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 7vh 7vw;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity .5s ease, transform .6s cubic-bezier(.2,.7,.2,1);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .slide.center { justify-content: center; }
+
+  /* nav */
+  .nav {
+    position: fixed;
+    z-index: 10;
+    left: 0; right: 0; bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .dot {
+    pointer-events: auto;
+    width: 28px; height: 4px; border-radius: 2px;
+    background: #2a2e35;
+    border: 0; padding: 0; cursor: pointer;
+    transition: background .25s, transform .25s;
+  }
+  .dot:hover { background: #3a3f48; }
+  .dot.active { background: var(--accent); transform: scaleX(1.15); }
+
+  .progress {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: var(--accent);
+    width: 0%;
+    transition: width .5s ease;
+    z-index: 11;
+  }
+
+  .meta {
+    position: fixed; top: 18px; left: 24px; right: 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    color: var(--fg-dim); text-transform: uppercase;
+    z-index: 10; pointer-events: none;
+  }
+  .meta .live-dot {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent);
+    margin-right: 8px; animation: blink 1.8s infinite ease-in-out;
+    vertical-align: middle;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* section header (kicker + label) */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: .15em;
+  }
+  .section-name {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  .section-tail {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-mute);
+    letter-spacing: .1em;
+  }
+
+  /* cover */
+  .cover {
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: flex-start;
+    height: 100%;
+  }
+  .cover-mark {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: .18em;
+    margin-bottom: 26px;
+    text-transform: uppercase;
+  }
+  .cover-title {
+    font-size: clamp(48px, 7vw, 108px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-weight: 600;
+    margin: 0;
+  }
+  .cover-jp {
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    color: var(--fg-mute);
+    font-size: clamp(14px, 1.1vw, 17px);
+    margin-top: 24px;
+    letter-spacing: 0.04em;
+  }
+  .cover-bottom {
+    position: absolute;
+    left: 7vw; right: 7vw; bottom: 7vh;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--fg-dim);
+    letter-spacing: .08em;
+  }
+
+  /* shared content */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px;
+    background: var(--bg-soft);
+    transition: border-color .25s;
+  }
+  .card:hover { border-color: var(--line-strong); }
+
+  .card .head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .card .num {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: .12em;
+  }
+  .card .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .card li {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg);
+    padding-left: 14px;
+    position: relative;
+    margin-bottom: 6px;
+  }
+  .card li:last-child { margin-bottom: 0; }
+  .card li::before {
+    content: "·";
+    position: absolute; left: 4px; top: -1px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .card li.dim { color: var(--fg-dim); }
+  .card li.dim::before { color: var(--fg-mute); }
+
+  /* comparison */
+  .cmp-wrap { max-width: 1400px; }
+  .cmp {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .cmp th, .cmp td {
+    padding: 11px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  .cmp th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .cmp tbody tr { transition: background .2s; }
+  .cmp tbody tr:hover { background: var(--bg-soft2); }
+  .cmp .name { font-weight: 600; font-size: 13.5px; }
+  .cmp .note { color: var(--fg-dim); font-size: 12.5px; line-height: 1.5; }
+  .mark { font-family: var(--mono); font-weight: 600; font-size: 13.5px; }
+  .mark.o { color: var(--ok); }
+  .mark.x { color: var(--no); }
+  .mark.m { color: var(--maybe); }
+  .cmp tr.ours { background: linear-gradient(90deg, var(--accent-soft), transparent); }
+  .cmp tr.ours:hover { background: linear-gradient(90deg, var(--accent-soft), var(--bg-soft2)); }
+  .cmp tr.ours .name { color: var(--accent); }
+
+  /* product cards (compact features) */
+  .feat .head .ic {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--accent);
+    letter-spacing: .14em;
+    background: var(--accent-soft);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  /* stack panel */
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    background: var(--bg-soft);
+  }
+  .panel .lbl {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--fg-dim);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    background: var(--bg-soft2);
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+  }
+  .chip.hi { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* product layout */
+  .product-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 18px;
+  }
+  .right-col { display: flex; flex-direction: column; gap: 14px; }
+
+  /* limits */
+  .limit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .limit-row h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .badge {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    padding: 3px 7px;
+    border-radius: 3px;
+    background: var(--line-strong);
+    color: var(--fg-dim);
+    letter-spacing: .1em;
+  }
+  .badge.intent { background: #3a2f1a; color: var(--accent); }
+  .badge.maybe { background: #1f3140; color: var(--accent-2); }
+  .next {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-mute);
+    line-height: 1.5;
+  }
+  .next b { color: var(--accent-2); font-weight: 500; }
+
+  .eval-panel {
+    margin-top: 18px;
+  }
+  .eval-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .eval-list li {
+    font-size: 12.5px;
+    color: var(--fg);
+    line-height: 1.5;
+    padding: 10px 12px;
+    background: var(--bg-soft2);
+    border-left: 2px solid var(--accent);
+  }
+  .eval-list li .k {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--fg-mute);
+    letter-spacing: .12em;
+    margin-bottom: 3px;
+  }
+
+  /* hint */
+  .hint {
+    position: fixed; bottom: 20px; right: 24px;
+    z-index: 10;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--fg-dim); letter-spacing: .08em;
+  }
+  .hint kbd {
+    display: inline-block;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin: 0 2px;
+    background: var(--bg-soft);
+    color: var(--fg);
+    font-size: 10.5px;
+  }
+
+  @media (max-width: 1100px) {
+    .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    .product-grid { grid-template-columns: 1fr; }
+    .eval-list { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .grid-3, .grid-4, .grid-2 { grid-template-columns: 1fr; }
+    .slide { padding: 6vh 5vw; }
+    .cmp th, .cmp td { padding: 9px 7px; font-size: 11.5px; }
+    .meta, .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="meta">
+  <div><span class="live-dot"></span>Realtime Translator · Internal Intro</div>
+  <div><span id="page">01</span> / 06</div>
+</div>
+
+<div class="stage" id="stage">
+
+  <!-- Slide 1 — Cover (title only) -->
+  <section class="slide active center" data-slide="1">
+    <div class="cover">
+      <div class="cover-mark">Internal Intro · 2026</div>
+      <h1 class="cover-title">실시간 번역 회의록</h1>
+      <div class="cover-jp">リアルタイム翻訳ミーティングメモ</div>
+    </div>
+    <div class="cover-bottom">
+      <div>v0.x · Won Ji Ko</div>
+      <div>일본어 ↔ 한국어 / 영어</div>
+    </div>
+  </section>
+
+  <!-- Slide 2 — 배경 -->
+  <section class="slide" data-slide="2">
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <span class="section-name">배경</span>
+      <span class="section-tail">Context</span>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="head"><span class="num">A</span><span class="title">일본어 미팅</span></div>
+        <ul>
+          <li>일본 사업 스쿼드 · 화이트라벨링</li>
+          <li>고객 피드백 미팅 다수</li>
+          <li>주 진행 언어: 일본어</li>
+          <li class="dim">실시간 토픽 캐치가 곤란</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="head"><span class="num">B</span><span class="title">후처리의 한계</span></div>
+        <ul>
+          <li>기존 도구: 녹음 → 후처리 번역</li>
+          <li>회의 도중 의사결정 타이밍 못 맞춤</li>
+          <li class="dim">회의 흐름은 회의 안에서만 살아있음</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="head"><span class="num">C</span><span class="title">캡처 요건</span></div>
+        <ul>
+          <li>마이크 + 시스템 사운드 동시</li>
+          <li>Zoom · Google Meet · Teams 전반</li>
+          <li class="dim">회의 툴 비종속 필요</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 3 — 기존 대안 -->
+  <section class="slide" data-slide="3">
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <span class="section-name">기존 대안</span>
+      <span class="section-tail">Comparison</span>
+    </div>
+
+    <div class="cmp-wrap">
+      <table class="cmp">
+        <thead>
+          <tr>
+            <th style="width:16%">도구</th>
+            <th style="width:8%">실시간</th>
+            <th style="width:8%">정확도</th>
+            <th style="width:9%">화자 구분</th>
+            <th style="width:10%">시스템 사운드</th>
+            <th style="width:9%">프라이버시</th>
+            <th>비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">네이버 클로바</td>
+            <td><span class="mark x">✗</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark o">○</span></td>
+            <td class="note">후처리 전용 · 인식률·화자구분 우수</td>
+          </tr>
+          <tr>
+            <td class="name">GPT 앱</td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark x">✗</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark m">△</span></td>
+            <td class="note">녹화·끊기 수동 · 토픽 캐치는 강함</td>
+          </tr>
+          <tr>
+            <td class="name">Zoom 자동 CC</td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark x">✗</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark m">△</span></td>
+            <td class="note">퀄리티 낮음 · 타겟 언어가 참여자 전체에 동기화</td>
+          </tr>
+          <tr>
+            <td class="name">Google Meet 스크립트</td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark x">✗</span></td>
+            <td class="note">누락 많음 · 외부인 알림/권한 · 자동 노트 용량</td>
+          </tr>
+          <tr>
+            <td class="name">기타 SaaS</td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark x">✗</span></td>
+            <td class="note">"문의 주세요" · 외부 서버 적재</td>
+          </tr>
+          <tr class="ours">
+            <td class="name">→ Ours</td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark m">△</span></td>
+            <td><span class="mark x">✗</span></td>
+            <td><span class="mark o">○</span></td>
+            <td><span class="mark o">○</span></td>
+            <td class="note">마이크 + 시스템 동시 · 키 보유 · 외부 서버 없음</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Slide 4 — 만든 것 -->
+  <section class="slide" data-slide="4">
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <span class="section-name">만든 것</span>
+      <span class="section-tail">Product</span>
+    </div>
+
+    <div class="product-grid">
+      <div class="grid-2">
+        <div class="card feat">
+          <div class="head"><span class="ic">LIVE</span><span class="title">실시간 번역</span></div>
+          <ul>
+            <li>마이크 + 시스템 오디오 동시 캡처</li>
+            <li>라이브 자막 흐름</li>
+            <li class="dim">OpenAI 멀티모달 스트리밍</li>
+          </ul>
+        </div>
+        <div class="card feat">
+          <div class="head"><span class="ic">SUM</span><span class="title">요약</span></div>
+          <ul>
+            <li>회의 종료 후 일괄</li>
+            <li>토픽 · 결정사항 · 액션</li>
+            <li class="dim">UI 로케일 일치 프롬프트</li>
+          </ul>
+        </div>
+        <div class="card feat">
+          <div class="head"><span class="ic">NOTE</span><span class="title">메모</span></div>
+          <ul>
+            <li>회의 중 즉시 기록</li>
+            <li>반응형 사이드 패널</li>
+          </ul>
+        </div>
+        <div class="card feat">
+          <div class="head"><span class="ic">SHARE</span><span class="title">공유</span></div>
+          <ul>
+            <li>URL에 상태 인코딩</li>
+            <li>서버 없음 · DB 없음 · 가입 없음</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="panel">
+          <div class="lbl">Stack</div>
+          <div class="chips">
+            <span class="chip hi">OpenAI Multimodal</span>
+            <span class="chip">React</span>
+            <span class="chip">TypeScript</span>
+            <span class="chip">getUserMedia</span>
+            <span class="chip">getDisplayMedia</span>
+            <span class="chip">Web Audio</span>
+            <span class="chip">Vite</span>
+            <span class="chip">i18n (ko/en/ja)</span>
+            <span class="chip">URL state</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="lbl">설계 결정</div>
+          <div class="chips">
+            <span class="chip">키는 유저 보유</span>
+            <span class="chip">외부 서버 없음</span>
+            <span class="chip">멀티모달 단일화</span>
+            <span class="chip">타겟 언어 = UI 로케일</span>
+            <span class="chip">탭 분리 — 회의기록 / 대화번역 / 요약</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5 — 한계 & 다음 -->
+  <section class="slide" data-slide="5">
+    <div class="section-head">
+      <span class="section-num">04</span>
+      <span class="section-name">한계 &amp; 다음</span>
+      <span class="section-tail">Limits / Next</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="limit-row">
+          <h3>API 키 직접 입력</h3>
+          <span class="badge intent">의도</span>
+        </div>
+        <ul>
+          <li>서비스화 · 과금 · 계정 안 함</li>
+          <li class="dim">고객 데이터를 우리 서버로 끌어오지 않음</li>
+        </ul>
+        <div class="next"><b>NEXT</b> · 그대로 유지</div>
+      </div>
+
+      <div class="card">
+        <div class="limit-row">
+          <h3>번역 / 인식 품질</h3>
+          <span class="badge maybe">개선 여지</span>
+        </div>
+        <ul>
+          <li>아직 떨어지는 퀄리티</li>
+          <li class="dim">모델 · 프롬프트 · 오디오 파이프라인 모두 손볼 여지</li>
+        </ul>
+        <div class="next"><b>NEXT</b> · 도메인 프롬프트 · 오디오 전처리 · 컨텍스트 확장</div>
+      </div>
+
+      <div class="card">
+        <div class="limit-row">
+          <h3>화자 구분 없음</h3>
+          <span class="badge">현재</span>
+        </div>
+        <ul>
+          <li>즉석용엔 충분</li>
+          <li class="dim">정식 회의록 출력엔 부족</li>
+        </ul>
+        <div class="next"><b>NEXT</b> · 채널 분리(마이크/시스템)로 최소 2화자</div>
+      </div>
+
+      <div class="card">
+        <div class="limit-row">
+          <h3>정식 회의록 대체 X</h3>
+          <span class="badge">스코프</span>
+        </div>
+        <ul>
+          <li>현장 이해를 돕는 도구</li>
+          <li class="dim">공유용 회의록은 별도</li>
+        </ul>
+        <div class="next"><b>NEXT</b> · 요약 / 메모 export 보강</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 6 — 평가 기준 -->
+  <section class="slide" data-slide="6">
+    <div class="section-head">
+      <span class="section-num">05</span>
+      <span class="section-name">평가 기준</span>
+      <span class="section-tail">How we judge it</span>
+    </div>
+
+    <ul class="eval-list">
+      <li>
+        <span class="k">01 · DURING</span>
+        회의 도중 "방금 뭐였지?" 횟수가 줄었는가
+      </li>
+      <li>
+        <span class="k">02 · AFTER</span>
+        회의 끝났을 때 토픽 리스트가 머리에 남는가
+      </li>
+      <li>
+        <span class="k">03 · NEXT TIME</span>
+        다음 미팅에서 자연스럽게 다시 켜게 되는가
+      </li>
+    </ul>
+  </section>
+
+</div>
+
+<nav class="nav" id="nav"></nav>
+
+<div class="hint">
+  <kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd> · <kbd>1</kbd>–<kbd>6</kbd>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const nav = document.getElementById('nav');
+  const progress = document.getElementById('progress');
+  const pageEl = document.getElementById('page');
+  let idx = 0;
+
+  for (let i = 0; i < total; i++) {
+    const b = document.createElement('button');
+    b.className = 'dot' + (i === 0 ? ' active' : '');
+    b.setAttribute('aria-label', `Slide ${i + 1}`);
+    b.addEventListener('click', () => go(i));
+    nav.appendChild(b);
+  }
+  const dots = nav.querySelectorAll('.dot');
+
+  function go(n) {
+    if (n < 0 || n >= total || n === idx) return;
+    slides[idx].classList.remove('active');
+    dots[idx].classList.remove('active');
+    idx = n;
+    slides[idx].classList.add('active');
+    dots[idx].classList.add('active');
+    progress.style.width = ((idx + 1) / total * 100) + '%';
+    pageEl.textContent = String(idx + 1).padStart(2, '0');
+    slides[idx].scrollTop = 0;
+  }
+  function next() { go(Math.min(idx + 1, total - 1)); }
+  function prev() { go(Math.max(idx - 1, 0)); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault(); next();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault(); prev();
+    } else if (e.key === 'Home') {
+      e.preventDefault(); go(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); go(total - 1);
+    } else if (/^[1-9]$/.test(e.key)) {
+      const n = parseInt(e.key, 10) - 1;
+      if (n < total) { e.preventDefault(); go(n); }
+    }
+  });
+
+  let touchStartX = null;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (touchStartX == null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) (dx < 0 ? next : prev)();
+    touchStartX = null;
+  }, { passive: true });
+
+  let wheelLock = false;
+  document.addEventListener('wheel', (e) => {
+    if (wheelLock) return;
+    const cur = slides[idx];
+    const atTop = cur.scrollTop <= 0;
+    const atBottom = cur.scrollTop + cur.clientHeight >= cur.scrollHeight - 1;
+    if (e.deltaY > 0 && !atBottom) return;
+    if (e.deltaY < 0 && !atTop) return;
+    if (Math.abs(e.deltaY) < 30) return;
+    wheelLock = true;
+    (e.deltaY > 0 ? next : prev)();
+    setTimeout(() => { wheelLock = false; }, 700);
+  }, { passive: true });
+
+  progress.style.width = (1 / total * 100) + '%';
+</script>
+
+</body>
+</html>
